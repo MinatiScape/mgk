@@ -24,6 +24,7 @@
 #include <linux/fs.h>
 #include <linux/capability.h>
 #include <linux/eventpoll.h>
+#include <linux/wait.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-device.h>
@@ -205,6 +206,8 @@ MODULE_PARM_DESC(max_height,
 
 static DEFINE_IDR(v4l2loopback_index_idr);
 static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
+static DECLARE_WAIT_QUEUE_HEAD(hint_waitqueue);
+static struct v4l2_loopback_hint current_hint;
 
 /* frame intervals */
 #define V4L2LOOPBACK_FPS_MIN 0
@@ -2181,7 +2184,10 @@ static int v4l2_loopback_open(struct file *file)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
+	uid_t uid;
+	pid_t pid;
 	MARK();
+
 	dev = v4l2loopback_getdevice(file);
 	if (dev->open_count.counter >= dev->max_openers)
 		return -EBUSY;
@@ -2189,6 +2195,15 @@ static int v4l2_loopback_open(struct file *file)
 	opener = kzalloc(sizeof(*opener), GFP_KERNEL);
 	if (opener == NULL)
 		return -ENOMEM;
+
+	// Hint to userspace that this device file is being opened
+	pid = task_pid_nr(current);
+	uid = __kuid_val(current->cred->uid);
+	current_hint.type = HINT_OPEN;
+	current_hint.pid = pid;
+	current_hint.uid = uid;
+	current_hint.node = dev->vdev->num;
+	wake_up_interruptible(&hint_waitqueue);
 
 	atomic_inc(&dev->open_count);
 
@@ -2220,10 +2235,21 @@ static int v4l2_loopback_close(struct file *file)
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
 	int is_writer = 0, is_reader = 0;
+	uid_t uid;
+	pid_t pid;
 	MARK();
 
 	opener = fh_to_opener(file->private_data);
 	dev = v4l2loopback_getdevice(file);
+
+	// Hint to userspace that this device file is being closed
+	pid = task_pid_nr(current);
+	uid = __kuid_val(current->cred->uid);
+	current_hint.type = HINT_CLOSE;
+	current_hint.pid = pid;
+	current_hint.uid = uid;
+	current_hint.node = dev->vdev->num;
+	wake_up_interruptible(&hint_waitqueue);
 
 	if (WRITER == opener->type)
 		is_writer = 1;
@@ -2830,6 +2856,22 @@ static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 	kfree(dev);
 }
 
+static ssize_t v4l2loopback_control_read(struct file *file, char __user *buf,
+			size_t count, loff_t *f_pos)
+{
+	if (count != sizeof(struct v4l2_loopback_hint))
+		return -EINVAL;
+
+	wait_event_interruptible(hint_waitqueue, current_hint.type != HINT_UNKNOWN);
+	if (copy_to_user((void *)buf, (void*)&current_hint, count)) {
+		printk(KERN_ERR
+		       "v4l2-loopback: failed copy_to_user() in control read\n");
+		return -EFAULT;
+	}
+	current_hint.type = HINT_UNKNOWN;
+	return count;
+}
+
 static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 				       unsigned long parm)
 {
@@ -2946,6 +2988,7 @@ static const struct file_operations v4l2loopback_ctl_fops = {
 	// clang-format off
 	.owner		= THIS_MODULE,
 	.open		= nonseekable_open,
+	.read		= v4l2loopback_control_read,
 	.unlocked_ioctl	= v4l2loopback_control_ioctl,
 	.compat_ioctl	= v4l2loopback_control_ioctl,
 	.llseek		= noop_llseek,
@@ -3123,6 +3166,8 @@ static int __init v4l2loopback_init_module(void)
 			goto error;
 		}
 	}
+
+	current_hint.type = HINT_UNKNOWN;
 
 	dprintk("module installed\n");
 
