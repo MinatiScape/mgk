@@ -1826,7 +1826,7 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	int index;
+	int index = 0;
 	struct v4l2l_buffer *b;
 
 	dev = v4l2loopback_getdevice(file);
