@@ -2368,6 +2368,8 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 		atomic_read(&mtk_venc_slb_cb.perf_used_cnt),
 		atomic_read(&mtk_venc_slb_cb.later_cnt));
 
+	kfree(param);
+
 	if (ret) {
 		mtk_v4l2_err("venc_if_set_param failed=%d", ret);
 		ctx->state = MTK_STATE_ABORT;
