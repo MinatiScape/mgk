@@ -67,7 +67,8 @@
 			    transparent_hugepage=never \
 			    8250.nr_uarts=2 \
 				firmware_class.path=/vendor/firmware pelt=8 \
-				androidboot.hardware=mt6835";
+				androidboot.hardware=mt6835
+                                systempart=/dev/mapper/system printk.devkmsg=on log_buf_len=4M";
 		kaslr-seed = <0 0>;
 	};
 
