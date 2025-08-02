@@ -23,6 +23,7 @@
 #include <linux/sysrq.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/tty.h>
 #include <linux/ratelimit.h>
 #include <linux/tty_flip.h>
@@ -41,11 +42,6 @@
 #include <asm/irq.h>
 
 #include "8250.h"
-
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-#include <linux/sched.h>
-#include <linux/sched/clock.h>
-#endif
 
 /*
  * Configuration:
@@ -116,90 +112,33 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 	struct list_head *l, *end = NULL;
 	int pass_counter = 0, handled = 0;
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	int num = 0;
-	u64 ts[11] = {0};
-	u64 THRESHOLD = 5 * 1000 * 1000;
-
-	ts[0] = sched_clock();
-#endif
-
 	pr_debug("%s(%d): start\n", __func__, irq);
 
 	spin_lock(&i->lock);
-
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[1] = sched_clock();
-#endif
 
 	l = i->head;
 	do {
 		struct uart_8250_port *up;
 		struct uart_port *port;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		num++;
-#endif
+
 		up = list_entry(l, struct uart_8250_port, list);
 		port = &up->port;
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		if (num == 1)
-			ts[2] = sched_clock();
-		if (num == 2)
-			ts[3] = sched_clock();
-#endif
 		if (port->handle_irq(port)) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if (num == 1)
-				ts[4] = sched_clock();
-
-#endif
-
 			handled = 1;
 			end = NULL;
-		} else if (end == NULL) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if (num == 1)
-				ts[4] = sched_clock();
-
-			if (num == 2)
-				ts[5] = sched_clock();
-
-#endif
+		} else if (end == NULL)
 			end = l;
-		}
-		l = l->next;
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		if (num == 1)
-			ts[6] = sched_clock();
-		if (num == 2)
-			ts[7] = sched_clock();
-#endif
+		l = l->next;
 
 		if (l == i->head && pass_counter++ > PASS_LIMIT)
 			break;
 	} while (l != end);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[8] = sched_clock();
-#endif
+
 	spin_unlock(&i->lock);
 
 	pr_debug("%s(%d): end\n", __func__, irq);
-
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[9] = sched_clock();
-
-	if ((ts[9] - ts[0]) > THRESHOLD) {
-		pr_info("[%s],irq[%d]: num[%d], ts[0][%lld], 1[%lld], ts[2][%lld],\n"
-			"ts[3][%lld], ts[4][%lld], ts[5][%lld], ts[6][%lld], ts[7][%lld], ts[8][%lld],\n"
-			"ts[9][%lld], ts[9]-ts[0][%lld], 1-0[%lld], ts[4]-ts[2][%lld], ts[5]-ts[3][%lld],\n"
-			"ts[9]-ts[8][%lld]\n", __func__, irq, num, ts[0], ts[1], ts[2],
-			ts[3], ts[4], ts[5], ts[6], ts[7], ts[8], ts[9],
-			ts[9]-ts[0], ts[1]-ts[0], ts[4]-ts[2], ts[5]-ts[3],
-			ts[9]-ts[8]);
-	}
-#endif
 
 	return IRQ_RETVAL(handled);
 }
@@ -622,6 +561,9 @@ serial8250_register_ports(struct uart_driver *drv, struct device *dev)
 			continue;
 
 		up->port.dev = dev;
+
+		if (uart_console_enabled(&up->port))
+			pm_runtime_get_sync(up->port.dev);
 
 		serial8250_apply_quirks(up);
 		uart_add_one_port(drv, &up->port);
@@ -1207,6 +1149,7 @@ void serial8250_unregister_port(int line)
 		uart->port.type = PORT_UNKNOWN;
 		uart->port.dev = &serial8250_isa_devs->dev;
 		uart->capabilities = 0;
+		serial8250_init_port(uart);
 		serial8250_apply_quirks(uart);
 		uart_add_one_port(&serial8250_reg, &uart->port);
 	} else {

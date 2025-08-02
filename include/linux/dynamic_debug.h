@@ -55,16 +55,10 @@ struct _ddebug {
 
 #if defined(CONFIG_DYNAMIC_DEBUG_CORE)
 
-/* exported for module authors to exercise >control */
-int dynamic_debug_exec_queries(const char *query, const char *modname);
-
 int ddebug_add_module(struct _ddebug *tab, unsigned int n,
 				const char *modname);
 extern int ddebug_remove_module(const char *mod_name);
 extern __printf(2, 3)
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-void __dynamic_no_printk(struct _ddebug *descriptor, const char *fmt, ...);
-#endif
 void __dynamic_pr_debug(struct _ddebug *descriptor, const char *fmt, ...);
 
 extern int ddebug_dyndbg_module_param_cb(char *param, char *val,
@@ -161,92 +155,6 @@ void __dynamic_ibdev_dbg(struct _ddebug *descriptor,
 #define _dynamic_func_call_no_desc(fmt, func, ...)	\
 	__dynamic_func_call_no_desc(__UNIQUE_ID(ddebug), fmt, func, ##__VA_ARGS__)
 
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define dynamic_pr_emerg(fmt, ...)				\
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
-			   pr_fmt(fmt), ##__VA_ARGS__); \
-		printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__); \
-	}   else \
-		printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__); \
-})
-
-#define dynamic_pr_alert(fmt, ...)				\
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
-			   pr_fmt(fmt), ##__VA_ARGS__); \
-		printk(KERN_ALERT pr_fmt(fmt), ##__VA_ARGS__); \
-	}   else \
-		printk(KERN_ALERT pr_fmt(fmt), ##__VA_ARGS__); \
-})
-
-#define dynamic_pr_crit(fmt, ...)				\
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
-			   pr_fmt(fmt), ##__VA_ARGS__); \
-		printk(KERN_CRIT pr_fmt(fmt), ##__VA_ARGS__); \
-	}   else \
-		printk(KERN_CRIT pr_fmt(fmt), ##__VA_ARGS__); \
-})
-
-#define dynamic_pr_err(fmt, ...)				\
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
-			   pr_fmt(fmt), ##__VA_ARGS__); \
-		printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__); \
-	}   else \
-		printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__); \
-})
-
-#define dynamic_pr_warn(fmt, ...)				\
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
-			   pr_fmt(fmt), ##__VA_ARGS__); \
-		printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__); \
-	}   else \
-		printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__); \
-})
-
-#define dynamic_pr_notice(fmt, ...)				\
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
-			   pr_fmt(fmt), ##__VA_ARGS__); \
-		printk(KERN_NOTICE pr_fmt(fmt), ##__VA_ARGS__); \
-	}   else \
-		printk(KERN_NOTICE pr_fmt(fmt), ##__VA_ARGS__); \
-})
-
-#define dynamic_pr_info(fmt, ...)				\
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		__print_once = true; \
-		_dynamic_func_call(fmt,	__dynamic_no_printk,		\
-			   pr_fmt(fmt), ##__VA_ARGS__); \
-		printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__); \
-	}   else \
-		printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__); \
-})
-#endif
-
 #define dynamic_pr_debug(fmt, ...)				\
 	_dynamic_func_call(fmt,	__dynamic_pr_debug,		\
 			   pr_fmt(fmt), ##__VA_ARGS__)
@@ -290,7 +198,7 @@ static inline int ddebug_remove_module(const char *mod)
 static inline int ddebug_dyndbg_module_param_cb(char *param, char *val,
 						const char *modname)
 {
-	if (strstr(param, "dyndbg")) {
+	if (!strcmp(param, "dyndbg")) {
 		/* avoid pr_warn(), which wants pr_fmt() fully defined */
 		printk(KERN_WARNING "dyndbg param is supported only in "
 			"CONFIG_DYNAMIC_DEBUG builds\n");
@@ -299,22 +207,6 @@ static inline int ddebug_dyndbg_module_param_cb(char *param, char *val,
 	return -EINVAL;
 }
 
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-#define dynamic_pr_emerg(fmt, ...)                  \
-	do { if (0) printk(KERN_EMERG   pr_fmt(fmt), ##__VA_ARGS__); } while (0)
-#define dynamic_pr_alert(fmt, ...)                  \
-	do { if (0) printk(KERN_ALERT   pr_fmt(fmt), ##__VA_ARGS__); } while (0)
-#define dynamic_pr_crit(fmt, ...)                   \
-	do { if (0) printk(KERN_CRIT    pr_fmt(fmt), ##__VA_ARGS__); } while (0)
-#define dynamic_pr_err(fmt, ...)                    \
-	do { if (0) printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__); } while (0)
-#define dynamic_pr_warn(fmt, ...)                   \
-	do { if (0) printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__); } while (0)
-#define dynamic_pr_notice(fmt, ...)                 \
-	do { if (0) printk(KERN_NOTICE  pr_fmt(fmt), ##__VA_ARGS__); } while (0)
-#define dynamic_pr_info(fmt, ...)                   \
-	do { if (0) printk(KERN_INFO    pr_fmt(fmt), ##__VA_ARGS__); } while (0)
-#endif
 #define dynamic_pr_debug(fmt, ...)					\
 	do { if (0) printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__); } while (0)
 #define dynamic_dev_dbg(dev, fmt, ...)					\
@@ -325,12 +217,6 @@ static inline int ddebug_dyndbg_module_param_cb(char *param, char *val,
 		print_hex_dump(KERN_DEBUG, prefix_str, prefix_type,	\
 				rowsize, groupsize, buf, len, ascii);	\
 	} while (0)
-
-static inline int dynamic_debug_exec_queries(const char *query, const char *modname)
-{
-	pr_warn("kernel not built with CONFIG_DYNAMIC_DEBUG_CORE\n");
-	return 0;
-}
 
 #endif /* !CONFIG_DYNAMIC_DEBUG_CORE */
 

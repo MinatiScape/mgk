@@ -161,9 +161,6 @@ struct xhci_hcd_mtk {
 	struct regmap *uwk;
 	u32 uwk_reg_base;
 	u32 uwk_vers;
-	bool keep_clk_on;
-	struct proc_dir_entry *root;
-	struct proc_dir_entry *testmode_file;
 };
 
 static inline struct xhci_hcd_mtk *hcd_to_mtk(struct usb_hcd *hcd)

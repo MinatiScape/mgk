@@ -43,8 +43,7 @@ obj-$(CONFIG_KEYBOARD_MATRIX)		+= matrix_keypad.o
 obj-$(CONFIG_KEYBOARD_MAX7359)		+= max7359_keypad.o
 obj-$(CONFIG_KEYBOARD_MCS)		+= mcs_touchkey.o
 obj-$(CONFIG_KEYBOARD_MPR121)		+= mpr121_touchkey.o
-obj-$(CONFIG_KEYBOARD_MTK_KPD)		+= mtk-kpd.o
-obj-$(CONFIG_KEYBOARD_MTK_PMIC)		+= mtk-pmic-keys.o
+obj-$(CONFIG_KEYBOARD_MTK_PMIC) 	+= mtk-pmic-keys.o
 obj-$(CONFIG_KEYBOARD_NEWTON)		+= newtonkbd.o
 obj-$(CONFIG_KEYBOARD_NOMADIK)		+= nomadik-ske-keypad.o
 obj-$(CONFIG_KEYBOARD_NSPIRE)		+= nspire-keypad.o
@@ -71,7 +70,3 @@ obj-$(CONFIG_KEYBOARD_TEGRA)		+= tegra-kbc.o
 obj-$(CONFIG_KEYBOARD_TM2_TOUCHKEY)	+= tm2-touchkey.o
 obj-$(CONFIG_KEYBOARD_TWL4030)		+= twl4030_keypad.o
 obj-$(CONFIG_KEYBOARD_XTKBD)		+= xtkbd.o
-ifeq ($(CONFIG_GCOV_KERNEL),y)
-       GCOV_PROFILE_mtk-kpd.o := y
-       GCOV_PROFILE_mtk-pmic-keys.o := y
-endif

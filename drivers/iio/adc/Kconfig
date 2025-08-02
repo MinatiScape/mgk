@@ -705,26 +705,6 @@ config MCP3911
 	  This driver can also be built as a module. If so, the module will be
 	  called mcp3911.
 
-config MEDIATEK_MT6338_AUXADC
-	tristate "MediaTek MT6338 PMIC AUXADC Support"
-	depends on MFD_MT6338
-	help
-	  Say yes here to enable support for MediaTek MT6338 PMIC AUXADC.
-	  The driver supports multiple channels read.
-
-	  This driver can also be built as a module. If so, the module will be
-	  called mt6338-auxadc.
-
-config MEDIATEK_MT635X_AUXADC
-	tristate "MediaTek MT635X PMIC AUXADC Support"
-	depends on MFD_MT6397
-	help
-	  Say yes here to enable support for MediaTek MT635X PMIC AUXADC.
-	  The driver supports multiple channels read.
-
-	  This driver can also be built as a module. If so, the module will be
-	  called mt635x-auxadc.
-
 config MEDIATEK_MT6360_ADC
 	tristate "Mediatek MT6360 ADC driver"
 	depends on MFD_MT6360
@@ -735,40 +715,6 @@ config MEDIATEK_MT6360_ADC
 	  Integrated for System Monitoring includes
 	  is used in smartphones and tablets and supports a 11 channel
 	  general purpose ADC.
-
-config MEDIATEK_MT6362_ADC
-	tristate "Mediatek MT6362 SPMI ADC driver"
-	depends on MFD_MT6362
-	select IIO_BUFFER
-	select IIO_TRIGGERED_BUFFER
-	help
-	  Say yes here to have support for the MT6362 ADC.
-	  Provide VBUS, VSYS, VBAT, IBUS, IBAT several channel.
-
-	  The driver can also be build as a module.
-	  If so, the module will be called mt6362_adc.
-
-config MEDIATEK_MT6375_ADC
-	tristate "MT6375 ADC driver"
-	depends on MFD_MT6375
-	select IIO_BUFFER
-	select IIO_TRIGGERED_BUFFER
-	help
-	  Say yes here to have support for the MT6375 ADC.
-	  The driver does support several channels, VBUS, VBAT, IBUS, etc...
-
-	  The driver can also be build as a module.
-	  If so, the module will be called mt6375-adc.
-
-config MEDIATEK_MT6375_AUXADC
-	tristate "MT6375 AUXADC driver"
-	depends on MFD_MT6375
-	help
-	  Say yes here to have support for the MT6375 AUXADC.
-	  The driver does support several channels TBAT, VBAT, etc...
-
-	  The driver can also be build as a module.
-	  If so, the module will be called mt6375-auxadc.
 
 config MEDIATEK_MT6577_AUXADC
 	tristate "MediaTek AUXADC driver"
@@ -782,16 +728,6 @@ config MEDIATEK_MT6577_AUXADC
 
 	  This driver can also be built as a module. If so, the module will be
 	  called mt6577_auxadc.
-
-config MEDIATEK_SPMI_PMIC_ADC
-	tristate "MediaTek SPMI PMIC ADC Support"
-	depends on MFD_MTK_SPMI_PMIC
-	help
-	  Say yes here to enable support for MediaTek SPMI PMIC ADC.
-	  The driver supports multiple channels read.
-
-	  This driver can also be built as a module. If so, the module will be
-	  called mtk-spmi-pmic-adc.
 
 config MEN_Z188_ADC
 	tristate "MEN 16z188 ADC IP Core support"
@@ -951,15 +887,6 @@ config ROCKCHIP_SARADC
 	  To compile this driver as a module, choose M here: the
 	  module will be called rockchip_saradc.
 
-config RT9490_ADC
-	tristate "Richtek RT9490 ADC"
-	depends on MFD_RT9490 || COMPILE_TEST
-	help
-	  Say yes here to enable support rt9490 adc part.
-	  It can be used to get monitoring datas for the charging sense
-	  voltage and current.
-	  Say N to disable.
-
 config RZG2L_ADC
 	tristate "Renesas RZ/G2L ADC driver"
 	depends on ARCH_R9A07G044 || COMPILE_TEST
@@ -1063,22 +990,6 @@ config STMPE_ADC
 	help
 	  Say yes here to build support for ST Microelectronics STMPE
 	  built-in ADC block (stmpe811).
-
-config STX104
-	tristate "Apex Embedded Systems STX104 driver"
-	depends on PC104 && X86
-	select ISA_BUS_API
-	select GPIOLIB
-	help
-	  Say yes here to build support for the Apex Embedded Systems STX104
-	  integrated analog PC/104 card.
-
-	  This driver supports the 16 channels of single-ended (8 channels of
-	  differential) analog inputs, 2 channels of analog output, 4 digital
-	  inputs, and 4 digital outputs provided by the STX104.
-
-	  The base port addresses for the devices may be configured via the base
-	  array module parameter.
 
 config SUN4I_GPADC
 	tristate "Support for the Allwinner SoCs GPADC"

@@ -159,6 +159,7 @@ config ARCH_MEDIATEK
 	bool "MediaTek SoC Family"
 	select ARM_GIC
 	select PINCTRL
+	select MTK_TIMER
 	help
 	  This enables support for MediaTek MT27xx, MT65xx, MT76xx
 	  & MT81xx ARMv8 SoCs
@@ -257,6 +258,7 @@ config ARCH_INTEL_SOCFPGA
 
 config ARCH_SYNQUACER
 	bool "Socionext SynQuacer SoC Family"
+	select IRQ_FASTEOI_HIERARCHY_HANDLERS
 
 config ARCH_TEGRA
 	bool "NVIDIA Tegra SoC Family"

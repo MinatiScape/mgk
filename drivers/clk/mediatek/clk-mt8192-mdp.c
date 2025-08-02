@@ -4,7 +4,6 @@
 // Author: Chun-Jie Chen <chun-jie.chen@mediatek.com>
 
 #include <linux/clk-provider.h>
-#include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 
@@ -80,5 +79,4 @@ static struct platform_driver clk_mt8192_mdp_drv = {
 	},
 };
 
-module_platform_driver(clk_mt8192_mdp_drv);
-MODULE_LICENSE("GPL");
+builtin_platform_driver(clk_mt8192_mdp_drv);

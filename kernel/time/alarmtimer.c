@@ -33,13 +33,6 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/alarmtimer.h>
 
-#ifdef CONFIG_ALARMTIMER_DEBUG
-#include <asm/current.h>
-#endif
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-#include <linux/sched/clock.h>
-#endif
-
 /**
  * struct alarm_base - Alarm timer bases
  * @lock:		Lock for syncrhonized access to the base
@@ -166,19 +159,9 @@ static inline void alarmtimer_rtc_timer_init(void) { }
  */
 static void alarmtimer_enqueue(struct alarm_base *base, struct alarm *alarm)
 {
-#ifdef CONFIG_ALARMTIMER_DEBUG
-	static DEFINE_RATELIMIT_STATE(ratelimit, HZ - 1, 5);
-#endif
 	if (alarm->state & ALARMTIMER_STATE_ENQUEUED)
 		timerqueue_del(&base->timerqueue, &alarm->node);
 
-#ifdef CONFIG_ALARMTIMER_DEBUG
-	if (__ratelimit(&ratelimit)) {
-		ratelimit.begin = jiffies;
-		pr_notice("[%d:%s], %s, %lld\n", current->pid, current->comm,
-			__func__, alarm->node.expires);
-	}
-#endif
 	timerqueue_add(&base->timerqueue, &alarm->node);
 	alarm->state |= ALARMTIMER_STATE_ENQUEUED;
 }
@@ -218,38 +201,13 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 	unsigned long flags;
 	int ret = HRTIMER_NORESTART;
 	int restart = ALARMTIMER_NORESTART;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 start, end, process_time;
-#endif
-
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	start = sched_clock();
-#endif
 
 	spin_lock_irqsave(&base->lock, flags);
 	alarmtimer_dequeue(base, alarm);
 	spin_unlock_irqrestore(&base->lock, flags);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	end = sched_clock();
-	process_time = end - start;
-	if (process_time > 5000000L) // > 5ms
-		pr_notice("irq_monitor: time: %lld func: %s line: %d "
-			, process_time, __func__, __LINE__);
-
-	start = sched_clock();
-#endif
 
 	if (alarm->function)
 		restart = alarm->function(alarm, base->get_ktime());
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	end = sched_clock();
-	process_time = end - start;
-	if (process_time > 5000000L) // > 5ms
-		pr_notice("irq_monitor: function: %pS time: %lld func: %s line: %d "
-			, alarm->function, process_time, __func__, __LINE__);
-
-	start = sched_clock();
-#endif
 
 	spin_lock_irqsave(&base->lock, flags);
 	if (restart != ALARMTIMER_NORESTART) {
@@ -258,13 +216,6 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 		ret = HRTIMER_RESTART;
 	}
 	spin_unlock_irqrestore(&base->lock, flags);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	end = sched_clock();
-	process_time = end - start;
-	if (process_time > 5000000L) // > 5ms
-		pr_notice("irq_monitor: time: %lld func: %s line: %d "
-			, process_time, __func__, __LINE__);
-#endif
 
 	trace_alarmtimer_fired(alarm, base->get_ktime());
 	return ret;
@@ -295,9 +246,6 @@ static int alarmtimer_suspend(struct device *dev)
 	struct rtc_device *rtc;
 	unsigned long flags;
 	struct rtc_time tm;
-#ifdef CONFIG_ALARMTIMER_DEBUG
-	struct rtc_time time;
-#endif
 
 	spin_lock_irqsave(&freezer_delta_lock, flags);
 	min = freezer_delta;
@@ -344,15 +292,7 @@ static int alarmtimer_suspend(struct device *dev)
 	rtc_read_time(rtc, &tm);
 	now = rtc_tm_to_ktime(tm);
 	now = ktime_add(now, min);
-#ifdef CONFIG_ALARMTIMER_DEBUG
-	time = rtc_ktime_to_tm(now);
-	pr_notice_ratelimited("%s convert %lld to %04d/%02d/%02d %02d:%02d:%02d (now = %04d/%02d/%02d %02d:%02d:%02d)\n",
-			__func__, expires,
-			time.tm_year+1900, time.tm_mon+1, time.tm_mday,
-			time.tm_hour, time.tm_min, time.tm_sec,
-			tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday,
-			tm.tm_hour, tm.tm_min, tm.tm_sec);
-#endif
+
 	/* Set alarm, if in the past reject suspend briefly to handle */
 	ret = rtc_timer_start(rtc, &rtctimer, now, 0);
 	if (ret < 0)
@@ -530,11 +470,35 @@ u64 alarm_forward(struct alarm *alarm, ktime_t now, ktime_t interval)
 }
 EXPORT_SYMBOL_GPL(alarm_forward);
 
-u64 alarm_forward_now(struct alarm *alarm, ktime_t interval)
+static u64 __alarm_forward_now(struct alarm *alarm, ktime_t interval, bool throttle)
 {
 	struct alarm_base *base = &alarm_bases[alarm->type];
+	ktime_t now = base->get_ktime();
 
-	return alarm_forward(alarm, base->get_ktime(), interval);
+	if (IS_ENABLED(CONFIG_HIGH_RES_TIMERS) && throttle) {
+		/*
+		 * Same issue as with posix_timer_fn(). Timers which are
+		 * periodic but the signal is ignored can starve the system
+		 * with a very small interval. The real fix which was
+		 * promised in the context of posix_timer_fn() never
+		 * materialized, but someone should really work on it.
+		 *
+		 * To prevent DOS fake @now to be 1 jiffie out which keeps
+		 * the overrun accounting correct but creates an
+		 * inconsistency vs. timer_gettime(2).
+		 */
+		ktime_t kj = NSEC_PER_SEC / HZ;
+
+		if (interval < kj)
+			now = ktime_add(now, kj);
+	}
+
+	return alarm_forward(alarm, now, interval);
+}
+
+u64 alarm_forward_now(struct alarm *alarm, ktime_t interval)
+{
+	return __alarm_forward_now(alarm, interval, false);
 }
 EXPORT_SYMBOL_GPL(alarm_forward_now);
 
@@ -611,9 +575,10 @@ static enum alarmtimer_restart alarm_handle_timer(struct alarm *alarm,
 	if (posix_timer_event(ptr, si_private) && ptr->it_interval) {
 		/*
 		 * Handle ignored signals and rearm the timer. This will go
-		 * away once we handle ignored signals proper.
+		 * away once we handle ignored signals proper. Ensure that
+		 * small intervals cannot starve the system.
 		 */
-		ptr->it_overrun += alarm_forward_now(alarm, ptr->it_interval);
+		ptr->it_overrun += __alarm_forward_now(alarm, ptr->it_interval, true);
 		++ptr->it_requeue_pending;
 		ptr->it_active = 1;
 		result = ALARMTIMER_RESTART;

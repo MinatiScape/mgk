@@ -171,7 +171,7 @@ config MADERA_IRQ
 config IRQ_MIPS_CPU
 	bool
 	select GENERIC_IRQ_CHIP
-	select GENERIC_IRQ_IPI if SYS_SUPPORTS_MULTITHREADING
+	select GENERIC_IRQ_IPI if SMP && SYS_SUPPORTS_MULTITHREADING
 	select IRQ_DOMAIN
 	select GENERIC_IRQ_EFFECTIVE_AFF_MASK
 
@@ -304,7 +304,8 @@ config KEYSTONE_IRQ
 
 config MIPS_GIC
 	bool
-	select GENERIC_IRQ_IPI
+	select GENERIC_IRQ_IPI if SMP
+	select IRQ_DOMAIN_HIERARCHY
 	select MIPS_CM
 
 config INGENIC_IRQ
@@ -574,18 +575,6 @@ config LOONGSON_PCH_MSI
 	select PCI_MSI
 	help
 	  Support for the Loongson PCH MSI Controller.
-
-config MTK_SYSIRQ
-	tristate "Mediatek interrupt polarity controller"
-	help
-	  Interrupt polarity controller driver to swap polarity for
-	  interrupts for Mediatek mobile chips.
-
-config MTK_CIRQ
-	bool "Mediatek low-power interrupt controller"
-	help
-	  Low-power interrupt controller driver to monitor IRQS
-	  in the sleep mode for Mediatek mobile chips.
 
 config MST_IRQ
 	bool "MStar Interrupt Controller"

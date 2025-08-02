@@ -328,6 +328,7 @@ config SCHED_TRACER
 config HWLAT_TRACER
 	bool "Tracer to detect hardware latencies (like SMIs)"
 	select GENERIC_TRACER
+	select TRACER_MAX_TRACE
 	help
 	 This tracer, when enabled will create one or more kernel threads,
 	 depending on what the cpumask file is set to, which each thread
@@ -363,6 +364,7 @@ config HWLAT_TRACER
 config OSNOISE_TRACER
 	bool "OS Noise tracer"
 	select GENERIC_TRACER
+	select TRACER_MAX_TRACE
 	help
 	  In the context of high-performance computing (HPC), the Operating
 	  System Noise (osnoise) refers to the interference experienced by an
@@ -1036,27 +1038,3 @@ config HIST_TRIGGERS_DEBUG
           If unsure, say N.
 
 endif # FTRACE
-
-if TRACING
-# MTK enhancements
-config MTK_FTRACER
-	bool "MTK Ftracer"
-	select CONTEXT_SWITCH_TRACER
-	help
-	  Mediatek ftrace enhancements to linux kernel, include boot trace
-	  and debug information. print enabled events list on trace log,
-	  developers can better analyze the problem
-
-	  If unsure, say N
-
-config MTK_FTRACE_DEFAULT_ENABLE
-	bool "enable events by default"
-	depends on MTK_FTRACER
-	help
-	  Enable ftrace at bootup e.g., enlarge ring_buffer size and enable
-	  configured events at bootup. With ftrace enabled and trace collected
-	  at exceptions, developers can better analyze the problem
-
-	  If unsure, say N
-
-endif # TRACING

@@ -185,18 +185,10 @@
 /* PHY Adapter Protocol Constants */
 #define PA_MAXDATALANES	4
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-#define DL_FC0ProtectionTimeOutVal_Default	1500
-#else
 #define DL_FC0ProtectionTimeOutVal_Default	8191
-#endif
 #define DL_TC0ReplayTimeOutVal_Default		65535
 #define DL_AFC0ReqTimeOutVal_Default		32767
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-#define DL_FC1ProtectionTimeOutVal_Default	1500
-#else
 #define DL_FC1ProtectionTimeOutVal_Default	8191
-#endif
 #define DL_TC1ReplayTimeOutVal_Default		65535
 #define DL_AFC1ReqTimeOutVal_Default		32767
 
@@ -249,12 +241,7 @@ enum ufs_unipro_ver {
 	UFS_UNIPRO_VER_1_6  = 3, /* UniPro version 1.6 */
 	UFS_UNIPRO_VER_1_61 = 4, /* UniPro version 1.61 */
 	UFS_UNIPRO_VER_1_8  = 5, /* UniPro version 1.8 */
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	UFS_UNIPRO_VER_2_0  = 6, /* UniPro version 2.0 */
-	UFS_UNIPRO_VER_MAX  = 7, /* UniPro unsupported version */
-#else
 	UFS_UNIPRO_VER_MAX  = 6, /* UniPro unsupported version */
-#endif
 	/* UniPro version field mask in PA_LOCALVERINFO */
 	UFS_UNIPRO_VER_MASK = 0xF,
 };

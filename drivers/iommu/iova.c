@@ -280,7 +280,7 @@ static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
 
 	curr = __get_cached_rbnode(iovad, limit_pfn);
 	curr_iova = to_iova(curr);
-	retry_pfn = curr_iova->pfn_hi + 1;
+	retry_pfn = curr_iova->pfn_hi;
 
 retry:
 	do {
@@ -294,16 +294,12 @@ retry:
 	if (high_pfn < size || new_pfn < low_pfn) {
 		if (low_pfn == iovad->start_pfn && retry_pfn < limit_pfn) {
 			high_pfn = limit_pfn;
-			low_pfn = retry_pfn;
+			low_pfn = retry_pfn + 1;
 			curr = iova_find_limit(iovad, limit_pfn);
 			curr_iova = to_iova(curr);
 			goto retry;
 		}
 		iovad->max32_alloc_size = size;
-#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
-		pr_info("[iommu_debug] %s fail, size:0x%lx,limit:0x%lx, new:0x%lx, start:0x%lx\n",
-			__func__, size, limit_pfn, new_pfn, iovad->start_pfn);
-#endif
 		goto iova32_full;
 	}
 
@@ -573,11 +569,6 @@ free_iova(struct iova_domain *iovad, unsigned long pfn)
 	iova = private_find_iova(iovad, pfn);
 	if (!iova) {
 		spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
-#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
-		pr_info("[iommu_debug] %s find iova fail!! start:0x%lx, cur:0x%lx\n",
-			__func__, iovad->start_pfn, pfn);
-		dump_stack();
-#endif
 		return;
 	}
 	remove_iova(iovad, iova);

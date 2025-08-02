@@ -5,9 +5,6 @@
 
 ccflags-$(CONFIG_RTC_DEBUG)	:= -DDEBUG
 
-# common include path
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
-
 obj-$(CONFIG_RTC_LIB)		+= lib.o
 obj-$(CONFIG_RTC_CLASS)		+= rtc-core.o
 obj-$(CONFIG_RTC_MC146818_LIB)	+= rtc-mc146818-lib.o
@@ -109,7 +106,6 @@ obj-$(CONFIG_RTC_DRV_MPC5121)	+= rtc-mpc5121.o
 obj-$(CONFIG_RTC_DRV_MSM6242)	+= rtc-msm6242.o
 obj-$(CONFIG_RTC_DRV_MT2712)	+= rtc-mt2712.o
 obj-$(CONFIG_RTC_DRV_MT6397)	+= rtc-mt6397.o
-obj-$(CONFIG_RTC_DRV_MT6685)	+= rtc-mt6685.o
 obj-$(CONFIG_RTC_DRV_MT7622)	+= rtc-mt7622.o
 obj-$(CONFIG_RTC_DRV_MV)	+= rtc-mv.o
 obj-$(CONFIG_RTC_DRV_MXC)	+= rtc-mxc.o

@@ -446,7 +446,7 @@ static inline void rt_queue_push_tasks(struct rq *rq)
 #endif /* CONFIG_SMP */
 
 static void enqueue_top_rt_rq(struct rt_rq *rt_rq);
-static void dequeue_top_rt_rq(struct rt_rq *rt_rq);
+static void dequeue_top_rt_rq(struct rt_rq *rt_rq, unsigned int count);
 
 static inline int on_rt_rq(struct sched_rt_entity *rt_se)
 {
@@ -475,7 +475,7 @@ static inline bool rt_task_fits_capacity(struct task_struct *p, int cpu)
 	unsigned int cpu_cap;
 
 	/* Only heterogeneous systems can benefit from this check */
-	if (!static_branch_unlikely(&sched_asym_cpucapacity))
+	if (!sched_asym_cpucap_active())
 		return true;
 
 	min_cap = uclamp_eff_value(p, UCLAMP_MIN);
@@ -567,7 +567,7 @@ static void sched_rt_rq_dequeue(struct rt_rq *rt_rq)
 	rt_se = rt_rq->tg->rt_se[cpu];
 
 	if (!rt_se) {
-		dequeue_top_rt_rq(rt_rq);
+		dequeue_top_rt_rq(rt_rq, rt_rq->rt_nr_running);
 		/* Kick cpufreq (see the comment in kernel/sched/sched.h). */
 		cpufreq_update_util(rq_of_rt_rq(rt_rq), 0);
 	}
@@ -653,7 +653,7 @@ static inline void sched_rt_rq_enqueue(struct rt_rq *rt_rq)
 
 static inline void sched_rt_rq_dequeue(struct rt_rq *rt_rq)
 {
-	dequeue_top_rt_rq(rt_rq);
+	dequeue_top_rt_rq(rt_rq, rt_rq->rt_nr_running);
 }
 
 static inline int rt_rq_throttled(struct rt_rq *rt_rq)
@@ -887,6 +887,7 @@ static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun)
 		int enqueue = 0;
 		struct rt_rq *rt_rq = sched_rt_period_rt_rq(rt_b, i);
 		struct rq *rq = rq_of_rt_rq(rt_rq);
+		struct rq_flags rf;
 		int skip;
 
 		/*
@@ -901,7 +902,7 @@ static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun)
 		if (skip)
 			continue;
 
-		raw_spin_rq_lock(rq);
+		rq_lock(rq, &rf);
 		update_rq_clock(rq);
 
 		if (rt_rq->rt_time) {
@@ -939,7 +940,7 @@ static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun)
 
 		if (enqueue)
 			sched_rt_rq_enqueue(rt_rq);
-		raw_spin_rq_unlock(rq);
+		rq_unlock(rq, &rf);
 	}
 
 	if (!throttled && (!rt_bandwidth_enabled() || rt_b->rt_runtime == RUNTIME_INF))
@@ -1061,7 +1062,7 @@ static void update_curr_rt(struct rq *rq)
 }
 
 static void
-dequeue_top_rt_rq(struct rt_rq *rt_rq)
+dequeue_top_rt_rq(struct rt_rq *rt_rq, unsigned int count)
 {
 	struct rq *rq = rq_of_rt_rq(rt_rq);
 
@@ -1072,7 +1073,7 @@ dequeue_top_rt_rq(struct rt_rq *rt_rq)
 
 	BUG_ON(!rq->nr_running);
 
-	sub_nr_running(rq, rt_rq->rt_nr_running);
+	sub_nr_running(rq, count);
 	rt_rq->rt_queued = 0;
 
 }
@@ -1352,18 +1353,21 @@ static void __dequeue_rt_entity(struct sched_rt_entity *rt_se, unsigned int flag
 static void dequeue_rt_stack(struct sched_rt_entity *rt_se, unsigned int flags)
 {
 	struct sched_rt_entity *back = NULL;
+	unsigned int rt_nr_running;
 
 	for_each_sched_rt_entity(rt_se) {
 		rt_se->back = back;
 		back = rt_se;
 	}
 
-	dequeue_top_rt_rq(rt_rq_of_se(back));
+	rt_nr_running = rt_rq_of_se(back)->rt_nr_running;
 
 	for (rt_se = back; rt_se; rt_se = rt_se->back) {
 		if (on_rt_rq(rt_se))
 			__dequeue_rt_entity(rt_se, flags);
 	}
+
+	dequeue_top_rt_rq(rt_rq_of_se(back), rt_nr_running);
 }
 
 static void enqueue_rt_entity(struct sched_rt_entity *rt_se, unsigned int flags)
@@ -1700,8 +1704,7 @@ static inline void set_next_task_rt(struct rq *rq, struct task_struct *p, bool f
 	rt_queue_push_tasks(rq);
 }
 
-static struct sched_rt_entity *pick_next_rt_entity(struct rq *rq,
-						   struct rt_rq *rt_rq)
+static struct sched_rt_entity *pick_next_rt_entity(struct rt_rq *rt_rq)
 {
 	struct rt_prio_array *array = &rt_rq->active;
 	struct sched_rt_entity *next = NULL;
@@ -1712,6 +1715,8 @@ static struct sched_rt_entity *pick_next_rt_entity(struct rq *rq,
 	BUG_ON(idx >= MAX_RT_PRIO);
 
 	queue = array->queue + idx;
+	if (SCHED_WARN_ON(list_empty(queue)))
+		return NULL;
 	next = list_entry(queue->next, struct sched_rt_entity, run_list);
 
 	return next;
@@ -1723,8 +1728,9 @@ static struct task_struct *_pick_next_task_rt(struct rq *rq)
 	struct rt_rq *rt_rq  = &rq->rt;
 
 	do {
-		rt_se = pick_next_rt_entity(rq, rt_rq);
-		BUG_ON(!rt_se);
+		rt_se = pick_next_rt_entity(rt_rq);
+		if (unlikely(!rt_se))
+			return NULL;
 		rt_rq = group_rt_rq(rt_se);
 	} while (rt_rq);
 
@@ -1824,7 +1830,7 @@ static int find_lowest_rq(struct task_struct *task)
 	 * If we're on asym system ensure we consider the different capacities
 	 * of the CPUs when searching for the lowest_mask.
 	 */
-	if (static_branch_unlikely(&sched_asym_cpucapacity)) {
+	if (sched_asym_cpucap_active()) {
 
 		ret = cpupri_find_fitness(&task_rq(task)->rd->cpupri,
 					  task, lowest_mask,
@@ -1908,25 +1914,10 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 	struct rq *lowest_rq = NULL;
 	int tries;
 	int cpu;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 ts[9] = {0};
-
-	ts[0] = sched_clock();
-#endif
 
 	for (tries = 0; tries < RT_MAX_TRIES; tries++) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[1] = sched_clock();
-#endif
 		cpu = find_lowest_rq(task);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[2] = sched_clock();
 
-		if ((ts[2] - ts[1] > 1000000ULL) && in_hardirq()) {
-			printk_deferred("%s duration %llu, ts[1]=%llu, ts[2]=%llu\n",
-					__func__, ts[2] - ts[1], ts[1], ts[2]);
-		}
-#endif
 		if ((cpu == -1) || (cpu == rq->cpu))
 			break;
 
@@ -1941,30 +1932,23 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			lowest_rq = NULL;
 			break;
 		}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[3] = sched_clock();
-#endif
+
 		/* if the prio of this runqueue changed, try again */
 		if (double_lock_balance(rq, lowest_rq)) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			ts[4] = sched_clock();
-
-			if ((ts[4] - ts[3] > 1000000ULL) && in_hardirq()) {
-				printk_deferred("%s duration %llu, ts[3]=%llu, ts[4]=%llu, rq=%d, lowest=%d\n",
-					__func__, ts[4] - ts[3], ts[3], ts[4],
-					rq->cpu, lowest_rq->cpu);
-			}
-#endif
 			/*
 			 * We had to unlock the run queue. In
 			 * the mean time, task could have
 			 * migrated already or had its affinity changed.
 			 * Also make sure that it wasn't scheduled on its rq.
+			 * It is possible the task was scheduled, set
+			 * "migrate_disabled" and then got preempted, so we must
+			 * check the task migration disable flag here too.
 			 */
 			if (unlikely(task_rq(task) != rq ||
 				     !cpumask_test_cpu(lowest_rq->cpu, &task->cpus_mask) ||
 				     task_running(rq, task) ||
 				     !rt_task(task) ||
+				     is_migration_disabled(task) ||
 				     !task_on_rq_queued(task))) {
 
 				double_unlock_balance(rq, lowest_rq);
@@ -1972,40 +1956,16 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 				break;
 			}
 		}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[5] = sched_clock();
 
-		if ((ts[5] - ts[3] > 1000000ULL) && in_hardirq()) {
-			printk_deferred("%s duration %llu, ts[3]=%llu, ts[5]=%llu\n",
-					__func__, ts[5] - ts[3], ts[3], ts[5]);
-		}
-#endif
 		/* If this rq is still suitable use it. */
 		if (lowest_rq->rt.highest_prio.curr > task->prio)
 			break;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[6] = sched_clock();
-#endif
+
 		/* try again */
 		double_unlock_balance(rq, lowest_rq);
 		lowest_rq = NULL;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[7] = sched_clock();
-#endif
 	}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[8] = sched_clock();
 
-	if ((ts[8] - ts[0] > 2500000ULL) && in_hardirq()) {
-		int i;
-
-		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[8] - ts[0], ts[0]);
-		for (i = 0; i < 8; i++) {
-			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-		}
-	}
-#endif
 	return lowest_rq;
 }
 
@@ -2039,41 +1999,14 @@ static int push_rt_task(struct rq *rq, bool pull)
 	struct task_struct *next_task;
 	struct rq *lowest_rq;
 	int ret = 0;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 ts[26] = {0};
-
-	ts[0] = sched_clock();
-#endif
 
 	if (!rq->rt.overloaded)
 		return 0;
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[1] = sched_clock();
-#endif
-
 	next_task = pick_next_pushable_task(rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[2] = sched_clock();
-#endif
-	if (!next_task) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		if ((ts[2] - ts[0] > 500000ULL) && in_hardirq()) {
-			int i;
-
-			printk_deferred("%s duration %llu, ts[0]=%llu\n",
-					__func__, ts[2] - ts[0], ts[0]);
-			for (i = 0; i < 2; i++) {
-				printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-			}
-		}
-#endif
+	if (!next_task)
 		return 0;
-	}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[3] = sched_clock();
-#endif
+
 retry:
 	/*
 	 * It's possible that the next_task slipped in of
@@ -2082,49 +2015,15 @@ retry:
 	 */
 	if (unlikely(next_task->prio < rq->curr->prio)) {
 		resched_curr(rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[4] = sched_clock();
-
-		if ((ts[4] - ts[0] > 600000ULL) && in_hardirq()) {
-			int i;
-
-			printk_deferred("%s duration %llu, ts[0]=%llu\n",
-					__func__, ts[4] - ts[0], ts[0]);
-			for (i = 0; i < 4; i++) {
-				printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-			}
-		}
-#endif
 		return 0;
 	}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[5] = sched_clock();
-#endif
 
 	if (is_migration_disabled(next_task)) {
 		struct task_struct *push_task = NULL;
 		int cpu;
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[6] = sched_clock();
-#endif
-
-		if (!pull || rq->push_busy) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if ((ts[6] - ts[0] > 700000ULL) && in_hardirq()) {
-				int i;
-
-				printk_deferred("%s duration %llu, ts[0]=%llu\n",
-						__func__, ts[6] - ts[0], ts[0]);
-				for (i = 0; i < 6; i++) {
-					printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-				}
-			}
-#endif
+		if (!pull || rq->push_busy)
 			return 0;
-		}
 
 		/*
 		 * Invoking find_lowest_rq() on anything but an RT task doesn't
@@ -2138,29 +2037,9 @@ retry:
 		if (rq->curr->sched_class != &rt_sched_class)
 			return 0;
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[7] = sched_clock();
-#endif
-
 		cpu = find_lowest_rq(rq->curr);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[8] = sched_clock();
-#endif
-		if (cpu == -1 || cpu == rq->cpu) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if ((ts[8] - ts[0] > 800000ULL) && in_hardirq()) {
-				int i;
-
-				printk_deferred("%s duration %llu, ts[0]=%llu\n",
-						__func__, ts[8] - ts[0], ts[0]);
-				for (i = 0; i < 8; i++) {
-					printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-				}
-			}
-#endif
+		if (cpu == -1 || cpu == rq->cpu)
 			return 0;
-		}
 
 		/*
 		 * Given we found a CPU with lower priority than @next_task,
@@ -2169,73 +2048,26 @@ retry:
 		 * running task on this CPU away.
 		 */
 		push_task = get_push_task(rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[9] = sched_clock();
-#endif
 		if (push_task) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			ts[10] = sched_clock();
-#endif
+			preempt_disable();
 			raw_spin_rq_unlock(rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			ts[11] = sched_clock();
-#endif
 			stop_one_cpu_nowait(rq->cpu, push_cpu_stop,
 					    push_task, &rq->push_work);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			ts[12] = sched_clock();
-#endif
+			preempt_enable();
 			raw_spin_rq_lock(rq);
 		}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[13] = sched_clock();
-
-		if ((ts[13] - ts[0] > 900000ULL) && in_hardirq()) {
-			int i;
-
-			printk_deferred("%s duration %llu, ts[0]=%llu\n",
-					__func__, ts[13] - ts[0], ts[0]);
-			for (i = 0; i < 13; i++) {
-				printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-			}
-		}
-#endif
 
 		return 0;
 	}
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[14] = sched_clock();
-#endif
-
-	if (WARN_ON(next_task == rq->curr)) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		if ((ts[14] - ts[0] > 1000000ULL) && in_hardirq()) {
-			int i;
-
-			printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__,
-					ts[14] - ts[0], ts[0]);
-			for (i = 0; i < 14; i++) {
-				printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-			}
-		}
-#endif
+	if (WARN_ON(next_task == rq->curr))
 		return 0;
-	}
 
 	/* We might release rq lock */
 	get_task_struct(next_task);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[15] = sched_clock();
-#endif
 
 	/* find_lock_lowest_rq locks the rq if found */
 	lowest_rq = find_lock_lowest_rq(next_task, rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[16] = sched_clock();
-#endif
 	if (!lowest_rq) {
 		struct task_struct *task;
 		/*
@@ -2247,9 +2079,6 @@ retry:
 		 * pushing.
 		 */
 		task = pick_next_pushable_task(rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[17] = sched_clock();
-#endif
 		if (task == next_task) {
 			/*
 			 * The task hasn't migrated, and is still the next
@@ -2269,83 +2098,27 @@ retry:
 		 */
 		put_task_struct(next_task);
 		next_task = task;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[18] = sched_clock();
-
-		if ((ts[18] - ts[0] > 2500000ULL) && in_hardirq()) {
-			int i;
-
-			printk_deferred("%s duration %llu, ts[0]=%llu\n",
-					__func__, ts[18] - ts[0], ts[0]);
-			for (i = 0; i < 18; i++) {
-				printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-			}
-		}
-#endif
 		goto retry;
 	}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[19] = sched_clock();
-#endif
+
 	deactivate_task(rq, next_task, 0);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[20] = sched_clock();
-#endif
 	set_task_cpu(next_task, lowest_rq->cpu);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[21] = sched_clock();
-#endif
 	activate_task(lowest_rq, next_task, 0);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[22] = sched_clock();
-#endif
 	resched_curr(lowest_rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[23] = sched_clock();
-#endif
 	ret = 1;
 
 	double_unlock_balance(rq, lowest_rq);
 out:
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[24] = sched_clock();
-#endif
 	put_task_struct(next_task);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[25] = sched_clock();
 
-	if ((ts[25] - ts[0] > 2500000ULL) && in_hardirq()) {
-		int i;
-
-		printk_deferred("%s duration %llu, ts[0]=%llu\n",
-				__func__, ts[25] - ts[0], ts[0]);
-		for (i = 0; i < 25; i++) {
-			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-		}
-	}
-#endif
 	return ret;
 }
 
 static void push_rt_tasks(struct rq *rq)
 {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 ts[2] = {0};
-
-	ts[0] = sched_clock();
-#endif
 	/* push_rt_task will return true if it moved an RT */
 	while (push_rt_task(rq, false))
 		;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[1] = sched_clock();
-	if ((ts[1] - ts[0] > 3000000ULL) && in_hardirq()) {
-		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
-				__func__, ts[1] - ts[0], ts[0], ts[1]);
-	}
-#endif
 }
 
 #ifdef HAVE_RT_PUSH_IPI
@@ -2620,9 +2393,11 @@ skip:
 		double_unlock_balance(this_rq, src_rq);
 
 		if (push_task) {
+			preempt_disable();
 			raw_spin_rq_unlock(this_rq);
 			stop_one_cpu_nowait(src_rq->cpu, push_cpu_stop,
 					    push_task, &src_rq->push_work);
+			preempt_enable();
 			raw_spin_rq_lock(this_rq);
 		}
 	}

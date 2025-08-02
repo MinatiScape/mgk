@@ -126,20 +126,6 @@ config SCSI_UFS_MEDIATEK
 
 	  If unsure, say N.
 
-config SCSI_UFS_MEDIATEK_DBG
-	tristate "Debugging facility for MediaTek UFS platforms"
-	depends on SCSI_UFS_MEDIATEK
-	help
-	  This selects the debugging facility for Mediatek UFS platforms.
-	  Provide UFS command history and connection to MediaTek Block IO
-	  Tracer.
-
-	  Select this if you want to enable above facilities.
-
-	  If unsure, say N.
-
-source "drivers/scsi/ufs/vendor/Kconfig"
-
 config SCSI_UFS_HISI
 	tristate "Hisilicon specific hooks to UFS controller platform driver"
 	depends on (ARCH_HISI || COMPILE_TEST) && SCSI_UFSHCD_PLATFORM
@@ -207,12 +193,6 @@ config SCSI_UFS_HPB
 	  read command by piggybacking physical page number for bypassing FTL (flash
 	  translation layer)'s L2P address translation.
 
-config MTK_UFS_DEBUG
-	bool "Support Mediatek UFS debug feature"
-	depends on SCSI_UFSHCD
-	help
-	  If it is enabled, UFS flow will change for GKI
-
 config SCSI_UFS_FAULT_INJECTION
 	bool "UFS Fault Injection Support"
 	depends on SCSI_UFSHCD && FAULT_INJECTION
@@ -221,8 +201,8 @@ config SCSI_UFS_FAULT_INJECTION
 	  to test the UFS error handler and abort handler.
 
 config SCSI_UFS_HWMON
-	bool "UFS  Temperature Notification"
-	depends on SCSI_UFSHCD && HWMON
+	bool "UFS Temperature Notification"
+	depends on SCSI_UFSHCD=HWMON || HWMON=y
 	help
 	  This provides support for UFS hardware monitoring. If enabled,
 	  a hardware monitoring device will be created for the UFS device.

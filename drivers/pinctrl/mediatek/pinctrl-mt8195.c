@@ -6,7 +6,6 @@
  *
  */
 
-#include <linux/module.h>
 #include "pinctrl-mtk-mt8195.h"
 #include "pinctrl-paris.h"
 
@@ -660,7 +659,7 @@ static const struct mtk_pin_field_calc mt8195_pin_drv_range[] = {
 	PIN_FIELD_BASE(10, 10, 4, 0x010, 0x10, 9, 3),
 	PIN_FIELD_BASE(11, 11, 4, 0x000, 0x10, 24, 3),
 	PIN_FIELD_BASE(12, 12, 4, 0x010, 0x10, 12, 3),
-	PIN_FIELD_BASE(13, 13, 4, 0x010, 0x10, 27, 3),
+	PIN_FIELD_BASE(13, 13, 4, 0x000, 0x10, 27, 3),
 	PIN_FIELD_BASE(14, 14, 4, 0x010, 0x10, 15, 3),
 	PIN_FIELD_BASE(15, 15, 4, 0x010, 0x10, 0, 3),
 	PIN_FIELD_BASE(16, 16, 4, 0x010, 0x10, 18, 3),
@@ -709,7 +708,7 @@ static const struct mtk_pin_field_calc mt8195_pin_drv_range[] = {
 	PIN_FIELD_BASE(78, 78, 3, 0x000, 0x10, 15, 3),
 	PIN_FIELD_BASE(79, 79, 3, 0x000, 0x10, 18, 3),
 	PIN_FIELD_BASE(80, 80, 3, 0x000, 0x10, 21, 3),
-	PIN_FIELD_BASE(81, 81, 3, 0x000, 0x10, 28, 3),
+	PIN_FIELD_BASE(81, 81, 3, 0x000, 0x10, 24, 3),
 	PIN_FIELD_BASE(82, 82, 3, 0x000, 0x10, 27, 3),
 	PIN_FIELD_BASE(83, 83, 3, 0x010, 0x10, 0, 3),
 	PIN_FIELD_BASE(84, 84, 3, 0x010, 0x10, 3, 3),
@@ -801,11 +800,19 @@ static const char * const mt8195_pinctrl_register_base_names[] = {
 	"iocfg_rb", "iocfg_tl",
 };
 
+static const struct mtk_eint_hw mt8195_eint_hw = {
+	.port_mask = 0xf,
+	.ports     = 7,
+	.ap_num    = 225,
+	.db_cnt    = 32,
+};
+
 static const struct mtk_pin_soc mt8195_data = {
 	.reg_cal = mt8195_reg_cals,
 	.pins = mtk_pins_mt8195,
 	.npins = ARRAY_SIZE(mtk_pins_mt8195),
 	.ngrps = ARRAY_SIZE(mtk_pins_mt8195),
+	.eint_hw = &mt8195_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
 	.base_names = mt8195_pinctrl_register_base_names,
@@ -836,6 +843,8 @@ static struct platform_driver mt8195_pinctrl_driver = {
 	.probe = mt8195_pinctrl_probe,
 };
 
-module_platform_driver(mt8195_pinctrl_driver);
-
-MODULE_LICENSE("GPL v2");
+static int __init mt8195_pinctrl_init(void)
+{
+	return platform_driver_register(&mt8195_pinctrl_driver);
+}
+arch_initcall(mt8195_pinctrl_init);

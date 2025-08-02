@@ -8,7 +8,6 @@
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/mfd/syscon.h>
-#include <linux/module.h>
 #include <linux/of_clk.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -21,7 +20,6 @@
 #include "mt8173-pm-domains.h"
 #include "mt8183-pm-domains.h"
 #include "mt8192-pm-domains.h"
-#include "mt8188-pm-domains.h"
 
 #define MTK_POLL_DELAY_US		10
 #define MTK_POLL_TIMEOUT		USEC_PER_SEC
@@ -60,12 +58,12 @@ struct scpsys {
 static bool scpsys_domain_is_on(struct scpsys_domain *pd)
 {
 	struct scpsys *scpsys = pd->scpsys;
-	u32 status = 0, status2 = 0;
+	u32 status, status2;
 
-	regmap_read(scpsys->base, pd->data->pwr_sta_offs, &status);
+	regmap_read(scpsys->base, scpsys->soc_data->pwr_sta_offs, &status);
 	status &= pd->data->sta_mask;
 
-	regmap_read(scpsys->base, pd->data->pwr_sta2nd_offs, &status2);
+	regmap_read(scpsys->base, scpsys->soc_data->pwr_sta2nd_offs, &status2);
 	status2 &= pd->data->sta_mask;
 
 	/* A domain is on when both status bits are set. */
@@ -76,7 +74,7 @@ static int scpsys_sram_enable(struct scpsys_domain *pd)
 {
 	u32 pdn_ack = pd->data->sram_pdn_ack_bits;
 	struct scpsys *scpsys = pd->scpsys;
-	unsigned int tmp = 0;
+	unsigned int tmp;
 	int ret;
 
 	regmap_clear_bits(scpsys->base, pd->data->ctl_offs, pd->data->sram_pdn_bits);
@@ -100,7 +98,7 @@ static int scpsys_sram_disable(struct scpsys_domain *pd)
 {
 	u32 pdn_ack = pd->data->sram_pdn_ack_bits;
 	struct scpsys *scpsys = pd->scpsys;
-	unsigned int tmp = 0;
+	unsigned int tmp;
 
 	if (MTK_SCPD_CAPS(pd, MTK_SCPD_SRAM_ISO)) {
 		regmap_set_bits(scpsys->base, pd->data->ctl_offs, PWR_SRAM_CLKISO_BIT);
@@ -274,9 +272,9 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	clk_bulk_disable_unprepare(pd->num_subsys_clks, pd->subsys_clks);
 
 	/* subsys power off */
-	regmap_clear_bits(scpsys->base, pd->data->ctl_offs, PWR_RST_B_BIT);
 	regmap_set_bits(scpsys->base, pd->data->ctl_offs, PWR_ISO_BIT);
 	regmap_set_bits(scpsys->base, pd->data->ctl_offs, PWR_CLK_DIS_BIT);
+	regmap_clear_bits(scpsys->base, pd->data->ctl_offs, PWR_RST_B_BIT);
 	regmap_clear_bits(scpsys->base, pd->data->ctl_offs, PWR_ON_2ND_BIT);
 	regmap_clear_bits(scpsys->base, pd->data->ctl_offs, PWR_ON_BIT);
 
@@ -428,10 +426,6 @@ generic_pm_domain *scpsys_add_one_domain(struct scpsys *scpsys, struct device_no
 			dev_err(scpsys->dev, "%pOF: failed to power on domain: %d\n", node, ret);
 			goto err_put_subsys_clocks;
 		}
-
-		if (MTK_SCPD_CAPS(pd, MTK_SCPD_ALWAYS_ON)) {
-			pd->genpd.flags |= GENPD_FLAG_ALWAYS_ON;
-		}
 	}
 
 	if (scpsys->domains[id]) {
@@ -575,10 +569,6 @@ static const struct of_device_id scpsys_of_match[] = {
 		.compatible = "mediatek,mt8192-power-controller",
 		.data = &mt8192_scpsys_data,
 	},
-	{
-		.compatible = "mediatek,mt8188-power-controller",
-		.data = &mt8188_scpsys_data,
-	},
 	{ }
 };
 
@@ -664,6 +654,4 @@ static struct platform_driver scpsys_pm_domain_driver = {
 		.of_match_table = scpsys_of_match,
 	},
 };
-
-module_platform_driver(scpsys_pm_domain_driver);
-MODULE_LICENSE("GPL");
+builtin_platform_driver(scpsys_pm_domain_driver);

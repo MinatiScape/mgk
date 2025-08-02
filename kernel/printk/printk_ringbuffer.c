@@ -1735,7 +1735,7 @@ static bool copy_data(struct prb_data_ring *data_ring,
 	if (!buf || !buf_size)
 		return true;
 
-	data_size = min_t(u16, buf_size, len);
+	data_size = min_t(unsigned int, buf_size, len);
 
 	memcpy(&buf[0], data, data_size); /* LMM(copy_data:A) */
 	return true;
@@ -2054,19 +2054,6 @@ u64 prb_next_seq(struct printk_ringbuffer *rb)
 
 	return seq;
 }
-
-#ifdef CONFIG_MTK_PRINTK_DEBUG
-u64 prb_next_seq_id(struct printk_ringbuffer *rb, u64 old_seq)
-{
-	u64 seq = old_seq;
-
-	/* Search forward from the oldest descriptor. */
-	while (_prb_read_valid(rb, &seq, NULL, NULL))
-		seq++;
-
-	return seq;
-}
-#endif
 
 /**
  * prb_init() - Initialize a ringbuffer to use provided external buffers.
