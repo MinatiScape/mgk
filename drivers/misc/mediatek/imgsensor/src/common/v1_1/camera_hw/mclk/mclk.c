@@ -132,9 +132,13 @@ static enum IMGSENSOR_RETURN mclk_set(
 {
 	struct mclk *pinst = (struct mclk *)pinstance;
 	struct pinctrl_state *ppinctrl_state;
+#if IS_ENABLED(CONFIG_CAMERA_GC0301) //prize add by zhuzhengjiang for fake vga camera start
+	struct pinctrl_state *ppinctrl_fakecamera_state;
+#endif
 	enum   IMGSENSOR_RETURN ret = IMGSENSOR_RETURN_SUCCESS;
 	enum MCLK_STATE state_index = MCLK_STATE_DISABLE;
 	unsigned int state_index_uint = 0;
+	unsigned int sensor_idx_uint = 0;
 
 	if (pin_state < IMGSENSOR_HW_PIN_STATE_LEVEL_0 ||
 	    pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH) {
@@ -144,18 +148,25 @@ static enum IMGSENSOR_RETURN mclk_set(
 		? pinst->drive_current[sensor_idx]
 		: MCLK_STATE_DISABLE;
 
+		sensor_idx_uint = sensor_idx;
 		state_index_uint = state_index;
 
 		ppinctrl_state =
-			pinst->ppinctrl_state[sensor_idx][state_index_uint];
+			pinst->ppinctrl_state[sensor_idx_uint][state_index_uint];
+	#if IS_ENABLED(CONFIG_CAMERA_GC0301) //prize add by zhuzhengjiang for fake vga camera start
+		if(sensor_idx_uint == 0 && pin ==IMGSENSOR_HW_PIN_MCLK) {
+		ppinctrl_fakecamera_state =
+			pinst->ppinctrl_state[sensor_idx_uint+2][state_index_uint];
+		}
+	#endif
 		/*
 		 * pr_debug(
 		 *	"%s : idx %d pin %d state %d driv_current %d\n",
 		 *	__func__,
-		 *	sensor_idx,
+		 *	sensor_idx_uint,
 		 *	pin,
 		 *	pin_state,
-		 *	pinst->drive_current[sensor_idx]);
+		 *	pinst->drive_current[sensor_idx_uint]);
 		 */
 
 		mutex_lock(pinst->pmclk_mutex);
@@ -165,11 +176,16 @@ static enum IMGSENSOR_RETURN mclk_set(
 		else
 			PK_DBG("%s : sensor_idx %d pinctrl, PinIdx %d, Val %d, drive current %d\n",
 				__func__,
-				sensor_idx,
+				sensor_idx_uint,
 				pin,
 				pin_state,
-				pinst->drive_current[sensor_idx]);
-
+				pinst->drive_current[sensor_idx_uint]);
+	#if IS_ENABLED(CONFIG_CAMERA_GC0301) //prize add by zhuzhengjiang for fake vga camera start
+		if(sensor_idx_uint == 0 && pin ==IMGSENSOR_HW_PIN_MCLK) {
+			if (ppinctrl_fakecamera_state != NULL && !IS_ERR(ppinctrl_fakecamera_state))
+				pinctrl_select_state(pinst->ppinctrl, ppinctrl_fakecamera_state);
+		}
+	#endif
 		mutex_unlock(pinst->pmclk_mutex);
 	}
 	return ret;

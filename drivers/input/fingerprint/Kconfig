@@ -1,0 +1,54 @@
+#
+#Fingerprint
+#
+menu "Fingerprint support"
+	depends on INPUT
+
+config MTK_FINGERPRINT_SUPPORT
+	#bool "Mediatek Fingerprint"
+	tristate "Mediatek Fingerprint"
+	default n
+	help
+	  Fingerprint mtk driver enable/disable
+	  in the kernel.Say Y here if you want to
+	  use mediatek fingerprint driver,fingerprint
+	  driver will support fingerprint function
+
+# drv add fingerprint power start
+config PRIZE_FP_USE_VFP
+    bool "Fingerprint power vfp"
+    default n                                                                                                                                                                                                                                                                 
+    help
+      fingerprint device.
+# drv add fingerprint power end
+
+#prize add dengzhiyuan 20240418 start
+if MTK_FINGERPRINT_SUPPORT
+    config MTK_FINGERPRINT_SELECT
+	string "sensor type"
+	default "GF318M"
+
+if MTK_FINGERPRINT_SELECT = "ft9399_tee"
+    config FT9399_FINGERPRINT_TEE
+	tristate "FT9362 TEE Fingerprint"
+	default n
+	help
+		MICROARRAY fingerprint FT9362 TEE's device.
+endif
+endif
+#prize add dengzhiyuan 20240418 end
+
+source "drivers/input/fingerprint/focaltech_fp/Kconfig"
+source "drivers/input/fingerprint/focaltech_ree_ata/Kconfig"
+source "drivers/input/fingerprint/fortsense_driver_all_in_one/Kconfig"
+# drv add goodix fingerprint start
+source "drivers/input/fingerprint/goodix-gw9518/Kconfig"
+source "drivers/input/fingerprint/microarray_v4_0_0_1/Kconfig"
+# drv add goodix fingerprint end
+
+#prize-add ata test node 20240927 by dengbinggui 20240927 start
+source "drivers/input/fingerprint/pri_finger_ftm_node/Kconfig"
+#prize-add ata test node 20240927 by dengbinggui 20240927 end
+
+
+endmenu

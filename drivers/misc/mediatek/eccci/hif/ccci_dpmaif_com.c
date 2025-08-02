@@ -1128,6 +1128,9 @@ static inline void dpmaif_updata_max_bat_skb_cnt(struct dpmaif_rx_queue *rxq)
 				(g_max_bat_skb_cnt_for_md != max_bat_skb_cnt)) {
 			g_max_bat_skb_cnt_for_md = max_bat_skb_cnt;
 
+			if (g_max_bat_skb_cnt_for_md == 0xFFFF)  //need alloc max skb
+				ccci_dpmaif_bat_wakeup_thread(0);
+
 			if (g_debug_flags & DEBUG_MAX_SKB_CNT) {
 				struct debug_max_skb_cnt_hdr hdr = {0};
 
@@ -2492,6 +2495,10 @@ static int dpmaif_pre_stop(unsigned char hif_id)
 {
 	if (hif_id != DPMAIF_HIF_ID)
 		return -1;
+
+	if (dpmaif_ctl->dpmaif_state == DPMAIF_STATE_PWROFF ||
+		dpmaif_ctl->dpmaif_state == DPMAIF_STATE_MIN)
+		return 0;
 
 	if (dpmaif_txqs_hw_stop())
 		CCCI_ERROR_LOG(0, TAG, "[%s] error: dpmaif_txqs_hw_stop() fail.\n", __func__);

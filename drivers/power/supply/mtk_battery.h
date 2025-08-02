@@ -851,7 +851,7 @@ struct simulator_log {
 #define SHUTDOWN_TIME 40
 #define AVGVBAT_ARRAY_SIZE 30
 #define INIT_VOLTAGE 3450
-#define BATTERY_SHUTDOWN_TEMPERATURE 60
+#define BATTERY_SHUTDOWN_TEMPERATURE 90
 
 struct shutdown_condition {
 	bool is_overheat;
@@ -1119,6 +1119,11 @@ struct mtk_battery {
 	int (*resume)(struct mtk_battery *gm);
 
 	int log_level;
+	/* prize LiuYong 20240219, modify to full time start */
+	bool is_low_power_adapter;
+	int adapter_check_count;
+	int adapter_check_time;
+	/* prize LiuYong 20240219, modify to full time end */
 };
 
 struct mtk_battery_sysfs_field_info {
@@ -1196,5 +1201,8 @@ extern void do_fg_algo(struct mtk_battery *gm, unsigned int intr_num);
 extern void fg_bat_temp_int_internal(struct mtk_battery *gm);
 /* mtk_battery_algo.c end */
 extern void disable_all_irq(struct mtk_battery *gm);
+/* prize LiuYong 20240219, modify to full time start */
+extern bool get_screen_on_status(void);
+/* prize LiuYong 20240219, modify to full time end */
 
 #endif /* __MTK_BATTERY_INTF_H__ */

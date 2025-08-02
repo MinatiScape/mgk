@@ -24,6 +24,13 @@
 #include "cam_cal_list.h"
 
 #include "cam_cal.h"
+/*prize modify by zhuzhengjiang for gc05a2sub otp 20210730 start*/
+#include "../../../../imgsensor/inc/kd_imgsensor_define.h"
+#include "../../../../imgsensor/inc/kd_camera_typedef.h"
+#include "../../../../imgsensor/inc/kd_imgsensor.h"
+#include "../../../../imgsensor/src/common/v1_1/gc05a2sub_mipi_raw/gc05a2submipi_Sensor.h"
+extern struct imgsensor_otp_info_struct gc05a2sub_otp_info;
+/*prize modify by zhuzhengjiang for gc08a3sub otp 20210730 end*/
 
 #define DEV_NODE_NAME_PREFIX "camera_eeprom"
 #define DEV_NAME_FMT "camera_eeprom%u"
@@ -56,7 +63,7 @@ static unsigned int read_region(struct EEPROM_DRV_FD_DATA *pdata,
 	unsigned short dts_addr;
 	struct stCAM_CAL_LIST_STRUCT *plist = get_list(&pdata->sensor_info);
 	unsigned int size_limit = (plist && plist->maxEepromSize > 0)
-		? plist->maxEepromSize : DEFAULT_MAX_EEPROM_SIZE_8K;
+		? plist->maxEepromSize : DEFAULT_MAX_EEPROM_SIZE_16K;
 
 	if (offset + size > size_limit) {
 		error_log("Not support address >= 0x%x!!\n", size_limit);
@@ -68,8 +75,54 @@ static unsigned int read_region(struct EEPROM_DRV_FD_DATA *pdata,
 		mutex_lock(&pdata->pdrv->eeprom_mutex);
 		dts_addr = pdata->pdrv->pi2c_client->addr;
 		pdata->pdrv->pi2c_client->addr = (plist->slaveID >> 1);
-		ret = plist->readCamCalData(pdata->pdrv->pi2c_client,
-					    offset, buf, size);
+		if(plist->sensorID == GC05A2SUB_SENSOR_ID){
+			if(offset == 0x0001) {
+				*buf = GC05A2SUB_SENSOR_ID&0xFF;
+				//*(buf+1) = (GC05A2SUB_SENSOR_ID>>8)&0xFF;
+				ret = size;
+			}
+			else if(offset == 0x08) {
+				*buf = ((gc05a2sub_otp_info.awb.awb_flag!=0)?1:0)|(((gc05a2sub_otp_info.af_flag!=0)?1:0)<<1);
+				ret = size;
+			}
+			else if(offset == 0x09) {// Unit awb
+				*buf = ((gc05a2sub_otp_info.awb.unit_r_h << 8) | gc05a2sub_otp_info.awb.unit_r_l)*255/1023;
+				*(buf+1) = ((gc05a2sub_otp_info.awb.unit_gr_h << 8) | gc05a2sub_otp_info.awb.unit_gr_l)*255/1023;
+				*(buf+2) = ((gc05a2sub_otp_info.awb.unit_gb_h << 8) | gc05a2sub_otp_info.awb.unit_gb_l)*255/1023;
+				*(buf+3) = ((gc05a2sub_otp_info.awb.unit_b_h << 8) | gc05a2sub_otp_info.awb.unit_b_l)*255/1023;
+				ret = size;
+			}
+			else if(offset == 0x0d) { // golden awb
+
+				*buf = ((gc05a2sub_otp_info.awb.golden_r_h << 8) | gc05a2sub_otp_info.awb.golden_r_l)*255/1023;
+				*(buf+1) = ((gc05a2sub_otp_info.awb.golden_gr_h << 8) | gc05a2sub_otp_info.awb.golden_gr_l)*255/1023;
+				*(buf+2) = ((gc05a2sub_otp_info.awb.golden_gb_h << 8) | gc05a2sub_otp_info.awb.golden_gb_l)*255/1023;
+				*(buf+3) = ((gc05a2sub_otp_info.awb.golden_b_h << 8) | gc05a2sub_otp_info.awb.golden_b_l)*255/1023;
+				ret = size;
+			}
+			else if(offset == 0x11) { // af inf
+				*buf = gc05a2sub_otp_info.af_inf_l;
+				*(buf+1) = gc05a2sub_otp_info.af_inf_h;
+				ret = size;
+			}
+			else if(offset == 0x13) { // af macro
+				*buf = gc05a2sub_otp_info.af_macro_l;
+				*(buf+1) = gc05a2sub_otp_info.af_macro_h;
+				ret = size;
+			}
+			else if(offset == 0x15) {// lsc startaddr-2
+				*buf=0x4C;
+				*(buf+1)=7;//lsc size
+				ret = size;
+			}
+			else if(offset == 0x17) {// lsc startaddr-2
+				memcpy(buf, (void *)&gc05a2sub_otp_info.lsc[0], size);
+				ret = size;
+			}else
+				ret = 0;
+		}else{
+			ret = plist->readCamCalData(pdata->pdrv->pi2c_client, offset, buf, size);
+		}
 		pdata->pdrv->pi2c_client->addr = dts_addr;
 		mutex_unlock(&pdata->pdrv->eeprom_mutex);
 	} else {

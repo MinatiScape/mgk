@@ -159,4 +159,24 @@ extern long DW9718TAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int DW9718TAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int DW9718TAF_GetFileName(unsigned char *pFileName);
 
+//prize add by lipengpeng 20210511 start 
+extern int DW9800WAF_SetI2Cclient_Main2(struct i2c_client *pstAF_I2Cclient,spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long DW9800WAF_Ioctl_Main2(struct file *a_pstFile, unsigned int a_u4Command,unsigned long a_u4Param);
+extern int DW9800WAF_Release_Main2(struct inode *a_pstInode, struct file *a_pstFile);
+extern int DW9800WAF_GetFileName_Main2(unsigned char *pFileName);
+//prize add by lipengpeng 20210511 end
+
+//drv added by wangmd ,support dw9714,20240816,start
+#define DW9714AF_SetI2Cclient DW9714AF_SetI2Cclient_Main2
+#define DW9714AF_Ioctl DW9714AF_Ioctl_Main2
+#define DW9714AF_Release DW9714AF_Release_Main2
+#define DW9714AF_GetFileName DW9714AF_GetFileName_Main2
+extern int DW9714AF_SetI2Cclient_Main2(struct i2c_client *pstAF_I2Cclient,
+				 spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long DW9714AF_Ioctl_Main2(struct file *a_pstFile, unsigned int a_u4Command,
+			   unsigned long a_u4Param);
+extern int DW9714AF_Release_Main2(struct inode *a_pstInode, struct file *a_pstFile);
+extern int DW9714AF_GetFileName_Main2(unsigned char *pFileName);
+//drv added by wangmd ,support dw9714,20240816,start
+
 #endif

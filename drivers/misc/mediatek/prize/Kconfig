@@ -1,0 +1,161 @@
+config PRIZE_DRIVER_SUPPORT
+	tristate "STMicroelectronics NFC driver solution"
+	help
+	  STMicroelectronics Near Field Communication controller support.
+	  It is the master switch of STMicroelectronics NFC controller drivers.
+	  If configures to be y, NFC_ST21NFC and NFC_ST54_SPI will be
+	  selected.
+config CAMERA_GC0301
+	tristate "STMicroelectronics NFC driver solution - NFC Controller Driver"
+	default n
+	help
+	  STMicroelectronics CAMERA_GC0301 Near Field Communication controller
+	  functionality. If configures to be n, means devices doesn't support
+	  NFC functionality.
+config PRIZE_LEPTON_FILR
+	tristate "priz lepton filr"
+	default n
+	help
+	  PRIZE_LEPTON_FILR. If configures to be n, means devices doesn't support
+	  FILR functionality.
+config PRIZE_HARDWARE_INFO
+	tristate "hardware_info"
+	default n
+	help
+	  hardware_info. If configures to be n, means devices doesn't support
+	  hardwareinfo functionality.
+
+#DRV added by chenjiaxi, add lpddr 8802 info (for ufs kernel-5.10), start
+config PRIZE_HARDWARE_LPDDR_INFO
+	tristate "hardware lpddr info"
+	default n
+	help
+	  hardware lpddr info. If configures to be n, means devices doesn't support
+	  hardware lpddr info functionality.
+#DRV added by chenjiaxi, add lpddr 8802 info (for ufs kernel-5.10), end
+# drv added by pzp, touch data reporting contrl, start
+config PRIZE_UNDERWATER_TOUCH_CONTROL
+	tristate "UNDERWATER_TOUCH"
+  default n
+  help
+    Prize Underwater camera not report touch point
+# drv added by pzp, touch data reporting contrl, end	
+config PRIZE_COMMON_NODE
+	tristate "common node"
+	default n
+	help
+	  common_node. If configures to be n, means devices doesn't support
+	  common_node functionality.
+source "drivers/misc/mediatek/prize/prize_common_node/Kconfig"
+
+#add by driver for pixel_manager 20231124 start
+config PRIZE_PIXEL_MANAGER
+	tristate "pixel manager enable"
+	default n
+	help
+	  Select m to enable prize pixel manager
+#add by driver for pixel_manager 20231124 end
+
+#drv-add by shenwenbin for oled panel 20231213 start
+config PRIZE_OLED_NODE
+	tristate "oled node"
+	default n
+	help
+	  oled_node. If configures to be n, means devices doesn't support
+	  oled_node functionality.
+#drv-add by shenwenbin for oled panel 20231213 end
+#drv add by lipengpeng 20240307 start
+config DRV_ADC_GMS_DETECT
+	tristate "adc gms detect"
+	default n
+	help
+	  hardware_info. If configures to be n, means devices doesn't support
+	  hardwareinfo functionality.
+	  
+config DRV_LEPTON_POWER
+	tristate "priz lepton filr power"
+	default n
+	help
+	  DRV_LEPTON_POWER. If configures to be n, means devices doesn't support
+	  FILR functionality.
+	  	  
+config PRIZE_AW2016A
+	tristate "priz AW2016A"
+	default n
+	help
+	  PRIZE_FM. If configures to be n, means devices doesn't support
+	  AW2016A functionality.
+#drv add by lipengpeng 20240307 end	  
+config PRIZE_TYPEC_POSITIVE_NEGATIVE
+	tristate "typec pt ne"
+	default n
+	help
+	  hardware_info. If configures to be n, means devices doesn't support
+	  hardwareinfo functionality.
+
+config PRIZE_TYPEC_CHG_DET
+	tristate "typec typec neg"
+	default n
+	help
+	  hardware_info. If configures to be n, means devices doesn't support
+	  hardwareinfo functionality.
+
+config PRIZE_BOARD_ID
+	tristate "prize board id config"
+	help
+	  Say Y here if you have a board id config and want to enable
+	  support for the built-in board id.
+
+	  If unsure, say N.
+
+config PRIZE_SIM_SWITCH
+	tristate "sim control switch"
+	default n
+	help
+	  sim control switch. If configures to be n, means devices doesn't support
+	  sim power control functionality.
+
+config PRIZE_SIM_SLOT_CHECK
+	tristate "sim control switch"
+	default n
+	help
+	  sim control switch. If configures to be n, means devices doesn't support
+	  sim power control functionality.
+config PRIZE_FM_ANT_SWITCH
+	tristate "priz fm_ant"
+	default n
+	help
+	  PRIZE_FM. If configures to be n, means devices doesn't support
+	  fm_ant functionality.
+
+config PRIZE_CAMPING_LIGHT
+	tristate "PRIZE_CAMPING_LIGHT Driver"
+	default n
+	help
+	  PRIZE_CAMPING_LIGHT.
+	  
+config DRV_FLASH_LIGHT
+	tristate "DRV_FLASH_LIGHT Driver"
+	default n
+	help
+	  DRV_FLASH_LIGHT.
+
+config PRIZE_UHF
+	tristate "UHF for UHF"
+	default n
+	help
+	  It support UHF control.
+
+#Drv: add for LAK-131 jinzhao 20240223
+config PRIZE_SIM_STATE
+	tristate "prize_sim_state"
+	default n
+	help
+	  prize_sim_state. If configures to be n, means devices doesn't support
+	  prize_sim_state functionality.	
+
+config DRV_ZKWBD_EN
+	tristate "zkwbeidou_en Driver"
+	default n
+	help
+	  DRV_ZKWBD_EN.	  

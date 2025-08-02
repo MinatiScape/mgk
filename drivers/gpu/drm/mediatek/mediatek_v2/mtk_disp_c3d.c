@@ -1298,6 +1298,14 @@ static const struct mtk_disp_c3d_data mt6886_c3d_driver_data = {
 	.c3d_sram_end_addr = 19648,
 };
 
+static const struct mtk_disp_c3d_data mt6835_c3d_driver_data = {
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.bin_num = 9,
+	.c3d_sram_start_addr = 0,
+	.c3d_sram_end_addr = 2912,
+};
+
 static const struct of_device_id mtk_disp_c3d_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6983-disp-c3d",
 	  .data = &mt6983_c3d_driver_data},
@@ -1309,6 +1317,8 @@ static const struct of_device_id mtk_disp_c3d_driver_dt_match[] = {
 	  .data = &mt6985_c3d_driver_data},
 	{ .compatible = "mediatek,mt6886-disp-c3d",
 	  .data = &mt6886_c3d_driver_data},
+	{ .compatible = "mediatek,mt6835-disp-c3d",
+	  .data = &mt6835_c3d_driver_data},
 	{},
 };
 
@@ -1339,11 +1349,11 @@ void mtk_disp_c3d_debug(const char *opt)
 	}
 }
 
-int disp_c3d_set_bypass(struct drm_crtc *crtc, int bypass)
+void disp_c3d_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret = 0;
+	int ret;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_C3D, &bypass);
+
 	DDPINFO("%s : ret = %d", __func__, ret);
-	return ret;
 }

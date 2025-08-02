@@ -9,6 +9,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/string.h>
 
 #ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -1081,8 +1082,10 @@ int led_brightness_changed_event_to_pq(struct notifier_block *nb, unsigned long 
 	switch (event) {
 	case LED_BRIGHTNESS_CHANGED:
 		if (!is_led_need_ccorr(led_conf->connector_id)) {
-			DDPINFO("connector id %d no need aal\n", led_conf->connector_id);
-			led_conf->aal_enable = 0;
+			DDPINFO("%s connector id %d no need aal\n", led_conf->cdev.name,
+					led_conf->connector_id);
+			if (!strcmp("lcd-backlight1", led_conf->cdev.name))
+				led_conf->aal_enable = 0;
 			break;
 		}
 		trans_level = led_conf->cdev.brightness;
@@ -1866,16 +1869,17 @@ struct platform_driver mtk_disp_ccorr_driver = {
 		},
 };
 
-int disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
+void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret = 0;
+	int ret;
 
-	if (g_ccorr_relay_value[index_of_ccorr(default_comp->id)] == bypass &&
-		g_ccorr_relay_value[index_of_ccorr(ccorr1_default_comp->id)] == bypass)
-		return ret;
+	if (g_ccorr_relay_value[index_of_ccorr(default_comp->id)] == bypass)
+		return;
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_CCORR, &bypass);
+	if ((disp_ccorr_number == 2 || default_comp->mtk_crtc->is_dual_pipe) && ccorr1_default_comp)
+		ret = mtk_crtc_user_cmd(crtc, ccorr1_default_comp, BYPASS_CCORR, &bypass);
+
 	DDPINFO("%s : ret = %d", __func__, ret);
-	return ret;
 }
 
 void mtk_ccorr_regdump(void)

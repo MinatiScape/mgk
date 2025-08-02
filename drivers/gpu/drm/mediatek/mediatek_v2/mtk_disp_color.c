@@ -3306,24 +3306,26 @@ static void mtk_color_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 static void mtk_color_bypass(struct mtk_ddp_comp *comp, int bypass,
 	struct cmdq_pkt *handle)
 {
-	if (comp == NULL) {
-		DDPPR_ERR("%s, null pointer!", __func__);
-		return;
-	}
+	struct mtk_disp_color *color = comp_to_color(comp);
 
 	DDPINFO("%s: bypass: %d\n", __func__, bypass);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_COLOR_CFG_MAIN,
+		       COLOR_BYPASS_ALL | COLOR_SEQ_SEL, ~0);
 
-	g_color_bypass = bypass;
+	/* disable R2Y/Y2R in Color Wrapper */
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_COLOR_CM1_EN(color), 0, 0x1);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_COLOR_CM2_EN(color), 0, 0x1);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_COLOR_START(color), 0x3, 0x3);
 
-	if (bypass) {
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(1 << 7), 0xFF); /* bypass all */
-	} else {
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(0 << 7), 0xFF); /* resume all */
-	}
+	/*
+	 * writel(0, comp->regs + DISP_COLOR_CM1_EN);
+	 * writel(0, comp->regs + DISP_COLOR_CM2_EN);
+	 * writel(0x1, comp->regs + DISP_COLOR_START(color));
+	 */
 }
 
 void disp_color_write_pos_main_for_dual_pipe(struct mtk_ddp_comp *comp,
@@ -3542,6 +3544,7 @@ static void ddp_color_restore(struct mtk_ddp_comp *comp)
 static void mtk_color_prepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_color *color = comp_to_color(comp);
+	bool is_color_restore = (g_color_backup.COLOR_CFG_MAIN != 0);
 
 	mtk_ddp_comp_clk_prepare(comp);
 	atomic_set(&g_color_is_clock_on[index_of_color(comp->id)], 1);
@@ -3552,7 +3555,8 @@ static void mtk_color_prepare(struct mtk_ddp_comp *comp)
 			DISP_COLOR_SHADOW_CTRL, COLOR_BYPASS_SHADOW);
 
 	// restore DISP_COLOR_CFG_MAIN register
-	ddp_color_restore(comp);
+	if (is_color_restore)
+		ddp_color_restore(comp);
 }
 
 static void mtk_color_unprepare(struct mtk_ddp_comp *comp)
@@ -3907,12 +3911,11 @@ struct platform_driver mtk_disp_color_driver = {
 		},
 };
 
-int disp_color_set_bypass(struct drm_crtc *crtc, int bypass)
+void disp_color_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret = 0;
+	int ret;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_COLOR, &bypass);
-	DDPINFO("%s : ret = %d", __func__, ret);
 
-	return ret;
+	DDPINFO("%s : ret = %d", __func__, ret);
 }

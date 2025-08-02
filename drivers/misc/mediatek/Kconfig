@@ -146,6 +146,10 @@ source "drivers/misc/mediatek/memory-amms/Kconfig"
 source "drivers/misc/mediatek/mddp/Kconfig"
 endmenu # Modem
 
+#prize liuyong ,add  health info, 20231018, start
+source "drivers/misc/mediatek/prize/Kconfig"
+#prize liuyong ,add  health info, 20231018, end
+
 menu "Other Peripherals"
 source "drivers/misc/mediatek/typec/Kconfig"
 source "drivers/misc/mediatek/extcon/Kconfig"
@@ -156,6 +160,8 @@ source "drivers/misc/mediatek/pwm/Kconfig"
 source "drivers/misc/mediatek/sensor/Kconfig"
 source "drivers/misc/mediatek/gate_ic/Kconfig"
 source "drivers/misc/mediatek/usb/Kconfig"
+source "drivers/misc/mediatek/lcd_bias/Kconfig"
+source "drivers/misc/mediatek/samsung/Kconfig"
 endmenu # Other Peripheral
 
 menu "Performance"
@@ -188,6 +194,14 @@ config EXT_MODULES
 	  Specify out-of-tree kernel modules to build in order
 	  The value must be kernel module repo list, such as
 	  "vendor/mediatek/kernel_modules/connectivity/common vendor/mediatek/kernel_modules/connectivity/gps"
+
+#drv add by wangwei1 20230510 start
+config LCD_BIAS
+	tristate "lcd bias Driver"
+	help
+	  Enables to support lcd bias. 
+	  If unsure, say N.
+#drv add by wangwei1 20230510 start
 endmenu # Config
 
 menu "Misc configs"

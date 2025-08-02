@@ -9,25 +9,35 @@ menu "Display Panels"
 	depends on DRM && DRM_PANEL
 
 config DRM_PANEL_BOE_NT37705_DPHY_CMD_FHD
-        tristate "boe nt37705 dphy cmd fhd panel"
-        depends on OF
-        depends on DRM_MIPI_DSI
-        depends on BACKLIGHT_CLASS_DEVICE
-        help
-          Say Y here if you want to enable support for ALPHA ILI7838A
-          DPHY vdo mode Full HD Plus 60HZ panel. The panel has a 1080x2520
-          resolution and uses 30-bits RGB per pixel. It provides a
-          MIPI DSI interface to host.
-
-config DRM_PANEL_BOE_BF130_DPHY_CMD_HD
-	tristate "panel boe bf130 dphy cmd hd panel"
+	tristate "boe nt37705 dphy cmd fhd panel"
 	depends on OF
 	depends on DRM_MIPI_DSI
 	depends on BACKLIGHT_CLASS_DEVICE
 	help
-	  Say Y here if you want to enable support for Alpha foldable
-	  FHD(382*720) panel.
-	  resolution and uses 24-bits RGB per pixel. It provides a
+	  Say Y here if you want to enable support for ALPHA NT37705
+	  DPHY vdo mode Full HD Plus 60HZ panel. The panel has a 1080x2520
+	  resolution and uses 30-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_BOE_BF130_DPHY_CMD_HD
+	tristate "boe bf130 dphy cmd hd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for Alpha BF130
+	  HD panel.The panel has a 382x720 resolution and uses 24-bits
+	  RGB per pixel. It provides a MIPI DSI interface to host.
+
+config DRM_PANEL_SAMSUNG_AMF680CM01_CMD_FHD
+	tristate "samsung amf680cm01 cmd fhd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA AMF680CM01
+	  DPHY vdo mode Full HD Plus 60HZ panel. The panel has a 1080x2520
+	  resolution and uses 30-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
 
 config DRM_PANEL_ABT_Y030XX067A
@@ -462,6 +472,8 @@ config DRM_PANEL_SAMSUNG_ATNA33XC20
 	depends on OF
 	depends on BACKLIGHT_CLASS_DEVICE
 	depends on PM
+	select DRM_DISPLAY_DP_HELPER
+	select DRM_DISPLAY_HELPER
 	select DRM_DP_AUX_BUS
 	help
 	  DRM panel driver for the Samsung ATNA33XC20 panel. This panel can't
@@ -788,6 +800,50 @@ config DRM_PANEL_TIANMA_R66451_CMD_120HZ_WA
 
 config DRM_PANEL_TIANMA_NT36672E_VDO_120HZ_HFP
 	tristate "TIANMA FHD+ vdo mode 120 HZ HFP panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA DPHY
+	  vdo mode HFP Full HD Plus 120HZ panel. The panel has a 1080x2408
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+	  
+config DRM_PANEL_SKYWORTH_FT8057_HDP_DSI_VOD_90HZ_AW3703D
+	tristate "SKYWORTH FT8057 vdo 90hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA DPHY
+	  vdo mode HFP Full HD Plus 120HZ panel. The panel has a 1080x2408
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+	  
+config DRM_PANEL_HUIKE_ILI9883_DSI_VDO
+	tristate "huike ili9883 vdo panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA DPHY
+	  vdo mode HFP Full HD Plus 120HZ panel. The panel has a 1080x2408
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+	  
+config DRM_PANEL_HUAYIN_FT8057S_DSI_VDO
+	tristate "huayin ft8057s vdo panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA DPHY
+	  vdo mode HFP Full HD Plus 120HZ panel. The panel has a 1080x2408
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_HUASHI_ILI9883_DSI_VDO
+	tristate "huashi ili9883 vdo panel"
 	depends on OF
 	depends on DRM_MIPI_DSI
 	depends on BACKLIGHT_CLASS_DEVICE

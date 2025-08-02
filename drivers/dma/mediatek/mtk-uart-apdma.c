@@ -138,6 +138,8 @@ struct mtk_chan {
 	void __iomem *base;
 	unsigned int irq;
 	unsigned int is_hub_port;
+	int chan_desc_count;
+	spinlock_t dma_lock;
 
 	unsigned int irq_wg;
 	unsigned int rx_status;
@@ -191,9 +193,16 @@ static unsigned int mtk_uart_apdma_read(struct mtk_chan *c, unsigned int reg)
 
 static void mtk_uart_apdma_desc_free(struct virt_dma_desc *vd)
 {
+	unsigned long flags;
 	struct mtk_uart_apdma_desc *d = NULL;
+	struct mtk_chan *c = NULL;
+	struct virt_dma_chan *vc = to_virt_chan(vd->tx.chan);
 
+	c = container_of(vc, struct mtk_chan, vc);
 	d = container_of(vd, struct mtk_uart_apdma_desc, vd);
+	spin_lock_irqsave(&c->dma_lock, flags);
+	c->chan_desc_count--;
+	spin_unlock_irqrestore(&c->dma_lock, flags);
 	if (d->is_global_vd)
 		d->is_using = false;
 	else
@@ -447,6 +456,11 @@ static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 	if (poll_cnt != MAX_POLLING_CNT)
 		pr_info("%s: poll_cnt[%d] is not MAX_POLLING_CNT!\n", __func__, poll_cnt);
 
+	if (c->chan_desc_count <= 0) {
+		pr_info("[WARN] %s, c->chan_desc_count[%d]\n", __func__, c->chan_desc_count);
+		return;
+	}
+
 	wpt = mtk_uart_apdma_read(c, VFF_ADDR);
 	if (wpt == ((unsigned int)d->addr)) {
 		mtk_uart_apdma_write(c, VFF_ADDR, 0);
@@ -695,16 +709,6 @@ static int mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 #else
 	c->rec_info[idx].irq_cur_cpu = 0xff;
 #endif
-#ifdef CONFIG_UART_DMA_DATA_RECORD
-	if (d->vd.tx.callback_param != NULL) {
-		struct uart_8250_port *p = (struct uart_8250_port *)d->vd.tx.callback_param;
-		struct uart_8250_dma *dma = p->dma;
-
-	if ((dma != NULL) && (cnt <= UART_RECORD_MAXLEN))
-		memcpy(c->rec_info[idx].rec_buf, (unsigned char *)dma->rx_buf,
-			cnt);
-	}
-#endif
 
 	list_del(&d->vd.node);
 	vchan_cookie_complete_thread_irq(&d->vd);
@@ -838,6 +842,8 @@ static void mtk_uart_apdma_free_chan_resources(struct dma_chan *chan)
 
 	tasklet_kill(&c->vc.task);
 
+	if (c->chan_desc_count > 0)
+		pr_info("[WARN] %s, c->chan_desc_count[%d]\n", __func__, c->chan_desc_count);
 	vchan_free_chan_resources(&c->vc);
 	pm_runtime_put_sync(mtkd->ddev.dev);
 }
@@ -871,6 +877,7 @@ static struct dma_async_tx_descriptor *mtk_uart_apdma_prep_slave_sg
 	struct mtk_uart_apdma_desc *d;
 	unsigned int poll_cnt = 0;
 	unsigned int idx_vd = 0;
+	unsigned long flags;
 
 	if (!is_slave_direction(dir) || sglen != 1) {
 		pr_info("%s is_slave_direction: %d, sglen: %d\n",
@@ -905,7 +912,9 @@ static struct dma_async_tx_descriptor *mtk_uart_apdma_prep_slave_sg
 	d->avail_len = sg_dma_len(sgl);
 	d->addr = sg_dma_address(sgl);
 	c->dir = dir;
-
+	spin_lock_irqsave(&c->dma_lock, flags);
+	c->chan_desc_count++;
+	spin_unlock_irqrestore(&c->dma_lock, flags);
 	return vchan_tx_prep(&c->vc, &d->vd, tx_flags);
 }
 
@@ -952,7 +961,7 @@ static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 		mtk_uart_apdma_write(c, VFF_FLUSH, VFF_FLUSH_B);
 		ret = readx_poll_timeout(readl, c->base + VFF_FLUSH,
 				  status, status != VFF_FLUSH_B, 10, 100);
-		dev_info(c->vc.chan.device->dev, "flush %s[%d]: %d\n",
+		dev_info(c->vc.chan.device->dev, "flush begin %s[%d]: %d\n",
 			c->dir == DMA_DEV_TO_MEM ? "RX":"TX", c->irq, ret);
 		/*
 		 * DMA hardware will generate a interrupt immediately
@@ -967,6 +976,9 @@ static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 		while (state)
 			irq_get_irqchip_state(c->irq,
 				IRQCHIP_STATE_ACTIVE, &state);
+
+		dev_info(c->vc.chan.device->dev, "flush end %s\n",
+			c->dir == DMA_DEV_TO_MEM ? "RX":"TX");
 	}
 
 	/*
@@ -996,6 +1008,9 @@ static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 	vchan_get_all_descriptors(&c->vc, &head);
 	spin_unlock_irqrestore(&c->vc.lock, flags);
 
+	if (c->chan_desc_count > 0)
+		pr_info("[WARN] %s, c->chan_desc_count[%d]\n", __func__, c->chan_desc_count);
+
 	vchan_dma_desc_free_list(&c->vc, &head);
 
 	return 0;
@@ -1011,9 +1026,8 @@ static int mtk_uart_apdma_device_pause(struct dma_chan *chan)
 	mtk_uart_apdma_write(c, VFF_EN, VFF_EN_CLR_B);
 	mtk_uart_apdma_write(c, VFF_INT_EN, VFF_INT_EN_CLR_B);
 
-	synchronize_irq(c->irq);
-
 	spin_unlock_irqrestore(&c->vc.lock, flags);
+	synchronize_irq(c->irq);
 
 	return 0;
 }
@@ -1192,6 +1206,7 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 		}
 		c->vc.desc_free = mtk_uart_apdma_desc_free;
 		vchan_init(&c->vc, &mtkd->ddev);
+		spin_lock_init(&c->dma_lock);
 
 		rc = platform_get_irq(pdev, i);
 		if (rc < 0) {

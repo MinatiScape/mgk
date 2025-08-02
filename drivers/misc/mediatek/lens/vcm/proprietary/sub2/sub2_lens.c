@@ -79,6 +79,42 @@ static struct stAF_OisPosInfo OisPosInfo;
 /* ------------------------- */
 
 static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
+/*	{1, AFDRV_DW9718TAF, DW9718TAF_SetI2Cclient, DW9718TAF_Ioctl,
+	 DW9718TAF_Release, DW9718TAF_GetFileName, NULL},
+	{1, AFDRV_LC898212XDAF_F, LC898212XDAF_F_SetI2Cclient,
+	 LC898212XDAF_F_Ioctl, LC898212XDAF_F_Release,
+	 LC898212XDAF_F_GetFileName, NULL},
+	{1, AFDRV_GT9772AF, GT9772AF_SetI2Cclient, GT9772AF_Ioctl,
+	 GT9772AF_Release, GT9772AF_GetFileName, NULL},
+	{1, AFDRV_LC898217AF, LC898217AF_SetI2Cclient, LC898217AF_Ioctl,
+	 LC898217AF_Release, LC898217AF_GetFileName, NULL},
+	{1, AFDRV_LC898217AFA, LC898217AFA_SetI2Cclient, LC898217AFA_Ioctl,
+	 LC898217AFA_Release, LC898217AFA_GetFileName, NULL},
+	{1, AFDRV_LC898217AFB, LC898217AFB_SetI2Cclient, LC898217AFB_Ioctl,
+	 LC898217AFB_Release, LC898217AFB_GetFileName, NULL},
+	{1, AFDRV_LC898217AFC, LC898217AFC_SetI2Cclient, LC898217AFC_Ioctl,
+	 LC898217AFC_Release, LC898217AFC_GetFileName, NULL},
+	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,
+	 AK7371AF_Release, AK7371AF_GetFileName, NULL},
+	{1, AFDRV_AK7374AF, AK7374AF_SetI2Cclient, AK7374AF_Ioctl,
+	 AK7374AF_Release, AK7374AF_GetFileName, NULL},
+	{1, AFDRV_DW9800WAF, DW9800WAF_SetI2Cclient_Main2,
+		DW9800WAF_Ioctl_Main2,
+	DW9800WAF_Release_Main2, NULL, NULL},
+	{1, AFDRV_BU64748AF, bu64748af_SetI2Cclient_Main2,
+	 bu64748af_Ioctl_Main2, bu64748af_Release_Main2,
+	 bu64748af_GetFileName_Main2, NULL},
+	 */
+	 /*prize  add  for main3 af by zhuzhengjiang    20190416-begin*/
+    {1, AFDRV_DW9718SAF, DW9718SAF_SetI2Cclient_Sub2, DW9718SAF_Ioctl_Sub2, DW9718SAF_Release_Sub2, DW9718SAF_GetFileName_Sub2,NULL},
+//	{1, AFDRV_DW9800WAF, DW9800WAF_SetI2Cclient_Main2, DW9800WAF_Ioctl_Main2, DW9800WAF_Release_Main2, DW9800WAF_GetFileName_Main2, NULL},
+//	{1, AFDRV_AW86014AF, AW86014AF_SetI2Cclient_Main2, AW86014AF_Ioctl_Main2, AW86014AF_Release_Main2, AW86014AF_GetFileName_Main2, NULL},
+//{1, AFDRV_DW9718AF,  DW9718AF_SetI2Cclient,  DW9718AF_Ioctl,  DW9718AF_Release, DW9718AF_GetFileName,NULL},
+/*prize  add  for main3 af by zhuzhengjiang    20190416-end*/
+/*prize  add  for main2 af by zhuzhengjiang    20210604-begin*/
+	//{1, AFDRV_DW9714KAF, DW9714KAF_SetI2Cclient, DW9714KAF_Ioctl,
+	// DW9714KAF_Release, DW9714KAF_GetFileName, NULL},
+/*prize  add  for main2 af by zhuzhengjiang    20210604-end*/
 };
 
 static struct stAF_DrvList *g_pstAF_CurDrv;

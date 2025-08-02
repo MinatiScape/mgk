@@ -1,0 +1,14 @@
+
+config PRIZE_COMMON_NODE
+	tristate "common node"
+	default n
+	help
+	  common_node. If configures to be n, means devices doesn't support
+	  common_node functionality.
+#drv added by pzp, touch data reporting contrl, start
+config PRIZE_UNDERWATER_TOUCH_CONTROL
+  tristate "UNDERWATER_TOUCH"
+  default n
+  help
+    Prize Underwater camera not report touch point
+#drv added by pzp, touch data reporting contrl, end

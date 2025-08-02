@@ -165,6 +165,7 @@ static int jpeg_drv_hybrid_dec_start(unsigned int data[],
 	IMG_REG_WRITE(data[18], REG_JPGDEC_HYBRID_344(id));
 	IMG_REG_WRITE(data[19], REG_JPGDEC_HYBRID_240(id));
 
+	gJpegqDev.is_dec_started[id] = true;
 	mutex_unlock(&jpeg_hybrid_dec_lock);
 
 	JPEG_LOG(1, "-");
@@ -387,10 +388,10 @@ static int jpeg_drv_hybrid_dec_lock(int *hwid)
 			continue;
 		} else {
 			*hwid = id;
+			dec_hwlocked[id] = true;
 			JPEG_LOG(1, "jpeg dec get %d HW core", id);
 			_jpeg_hybrid_dec_int_status[id] = 0;
 			jpeg_drv_hybrid_dec_power_on(id);
-			dec_hwlocked[id] = true;
 			enable_irq(gJpegqDev.hybriddecIrqId[id]);
 			break;
 		}
@@ -412,10 +413,10 @@ static void jpeg_drv_hybrid_dec_unlock(unsigned int hwid)
 	if (!dec_hwlocked[hwid]) {
 		JPEG_LOG(0, "try to unlock a free core %d", hwid);
 	} else {
-		disable_irq(gJpegqDev.hybriddecIrqId[hwid]);
 		dec_hwlocked[hwid] = false;
-		jpeg_drv_hybrid_dec_power_off(hwid);
 		JPEG_LOG(1, "jpeg dec HW core %d is unlocked", hwid);
+		jpeg_drv_hybrid_dec_power_off(hwid);
+		disable_irq(gJpegqDev.hybriddecIrqId[hwid]);
 		jpg_dmabuf_free_iova(bufInfo[hwid].i_dbuf,
 			bufInfo[hwid].i_attach,
 			bufInfo[hwid].i_sgt);
@@ -427,6 +428,7 @@ static void jpeg_drv_hybrid_dec_unlock(unsigned int hwid)
 		bufInfo[hwid].i_dbuf = NULL;
 		bufInfo[hwid].o_dbuf = NULL;
 		// we manually add 1 ref count, need to put it.
+		gJpegqDev.is_dec_started[hwid] = false;
 	}
 	mutex_unlock(&jpeg_hybrid_dec_lock);
 }
@@ -591,6 +593,13 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 			JPEG_LOG(0, "get hybrid dec id failed");
 			return -EFAULT;
 		}
+		mutex_lock(&jpeg_hybrid_dec_lock);
+		if (!gJpegqDev.is_dec_started[hwid]) {
+			JPEG_LOG(0, "Wait before decode get started");
+			mutex_unlock(&jpeg_hybrid_dec_lock);
+			return -EFAULT;
+		}
+		mutex_unlock(&jpeg_hybrid_dec_lock);
 	#ifdef FPGA_VERSION
 		JPEG_LOG(1, "Polling JPEG Hybrid Dec Status hwid: %d",
 				hwid);

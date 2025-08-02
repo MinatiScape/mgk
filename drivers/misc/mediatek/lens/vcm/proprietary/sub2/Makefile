@@ -24,3 +24,9 @@ obj-$(CONFIG_MTK_LENS)    += sub2af.o
 
 sub2af-y  += sub2_lens.o
 #sub2af-y  += common/ak7371af/AK7371AF.o
+#prize add by lipengpeng 20210511 start 
+
+
+sub2af-y  += common/dw9718saf/DW9718SAF.o
+
+#prize add by lipengpeng 20210511 start

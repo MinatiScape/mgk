@@ -410,6 +410,11 @@ void mtk_vdec_dvfs_sync_vsi_data(struct mtk_vcodec_ctx *ctx)
 	if (ctx->state == MTK_STATE_ABORT)
 		return;
 
+	if (IS_ERR_OR_NULL(inst) || IS_ERR_OR_NULL(inst->vsi)) {
+		mtk_v4l2_err("[VDVFS][%d] inst/vsi is err or null", ctx->id);
+		return;
+	}
+
 	dev->vdec_dvfs_params.target_freq = inst->vsi->target_freq;
 	dev->vdec_dvfs_params.high_loading_scenario = inst->vsi->high_loading_scenario;
 	ctx->dec_params.operating_rate = inst->vsi->op_rate;
@@ -619,10 +624,17 @@ void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *i
 		return;
 
 	inst_handle = (struct vdec_inst *) ctx->drv_handle;
-	if (!inst_handle)
+	if (IS_ERR_OR_NULL(inst_handle)) {
+		mtk_v4l2_err("[VDVFS][%d] find null drv handler", ctx->id);
 		return;
+	}
 
 	vsi_data = inst_handle->vsi;
+
+	if (IS_ERR_OR_NULL(vsi_data)) {
+		mtk_v4l2_err("[VDVFS][%d] vsi is err or null", ctx->id);
+		return;
+	}
 
 	inst = get_inst(ctx);
 	if (!inst)
@@ -656,8 +668,8 @@ void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long 
 	in[0] = MTK_INST_END;
 }
 
-/* update dvfs_params of ctx to vcp in runtime*/
-void mtk_vdec_dvfs_set_vsi_dvfs_params(struct mtk_vcodec_ctx *ctx)
+/* update active state of ctx to vcp */
+void mtk_vdec_dvfs_set_vsi_active_state(struct mtk_vcodec_ctx *ctx)
 {
 	struct vdec_inst *inst;
 	struct vdec_vsi *vsi_data;
@@ -667,7 +679,6 @@ void mtk_vdec_dvfs_set_vsi_dvfs_params(struct mtk_vcodec_ctx *ctx)
 	inst = (struct vdec_inst *) ctx->drv_handle;
 	vsi_data = inst->vsi;
 	vsi_data->is_active = ctx->is_active;
-	vsi_data->op_rate = ctx->dec_params.operating_rate;
 }
 
 /* update target freq and opp in ap*/
@@ -678,14 +689,14 @@ void mtk_vdec_force_update_freq(struct mtk_vcodec_dev *dev)
 	set_vdec_opp(dev, dev->vdec_dvfs_params.target_freq);
 }
 
-void mtk_vdec_dvfs_update_dvfs_params(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_dvfs_update_active_state(struct mtk_vcodec_ctx *ctx)
 {
 	struct vcodec_inst *inst = 0;
 	bool mmdvfs_in_vcp = (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0);
 	unsigned long vcp_dvfs_data[1] = {MTK_INST_UPDATE};
 
 	if (mmdvfs_in_vcp) {
-		mtk_vdec_dvfs_set_vsi_dvfs_params(ctx);
+		mtk_vdec_dvfs_set_vsi_active_state(ctx);
 		if (vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data) != 0)
 			mtk_v4l2_err("[VDVFS] %s [%d] alive ipi timeout", __func__, ctx->id);
 	} else {
@@ -693,7 +704,6 @@ void mtk_vdec_dvfs_update_dvfs_params(struct mtk_vcodec_ctx *ctx)
 		if (!inst)
 			return;
 		inst->is_active = ctx->is_active;
-		inst->op_rate = ctx->dec_params.operating_rate;
 	}
 }
 

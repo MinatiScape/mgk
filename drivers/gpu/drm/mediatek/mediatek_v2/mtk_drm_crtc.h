@@ -246,8 +246,9 @@ enum DISP_PMQOS_SLOT {
 #define MAX_CRTC_DC_FB 3
 
 #define __mtk_crtc_path_len(mtk_crtc, ddp_mode, ddp_path) \
+	(((ddp_mode < DDP_MODE_NR) && (ddp_path < DDP_PATH_NR)) ? \
 	((mtk_crtc)->ddp_ctx[ddp_mode].ovl_comp_nr[ddp_path] + \
-	(mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp_nr[ddp_path])
+	(mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp_nr[ddp_path]) : 0)
 
 #define __mtk_crtc_dual_path_len(mtk_crtc, ddp_path) \
 	((mtk_crtc)->dual_pipe_ddp_ctx.ovl_comp_nr[ddp_path] + \
@@ -278,7 +279,7 @@ enum DISP_PMQOS_SLOT {
 
 #define for_each_comp_in_crtc_path_bound(comp, mtk_crtc, __i, __j, offset)     \
 	for_each_comp_in_target_ddp_mode_bound(comp, mtk_crtc, __i, __j,       \
-			mtk_crtc->ddp_mode, offset)
+		(mtk_crtc->ddp_mode > 0 ? mtk_crtc->ddp_mode : 0), offset)
 
 #define for_each_comp_in_cur_crtc_path(comp, mtk_crtc, __i, __j)               \
 	for_each_comp_in_crtc_path_bound(comp, mtk_crtc, __i, __j, 0)
@@ -317,6 +318,7 @@ enum DISP_PMQOS_SLOT {
 			1) ; (__j)--)					  \
 			for_each_if(comp)
 
+/* this macro gets current display ctx's comp with all ddp_mode */
 #define for_each_comp_in_all_crtc_mode(comp, mtk_crtc, __i, __j, p_mode)       \
 	for ((p_mode) = 0; (p_mode) < DDP_MODE_NR; (p_mode)++)                 \
 		for ((__i) = 0; (__i) < DDP_PATH_NR; (__i)++)                  \
@@ -326,6 +328,7 @@ enum DISP_PMQOS_SLOT {
 				(__j)++)                      \
 				for_each_if(comp)
 
+/* this macro gets current display ctx with specific ddp_mode's comp */
 #define for_each_comp_in_crtc_target_mode_path(comp, mtk_crtc, __i, p_mode, ddp_path)       \
 	for ((__i) = 0;                           \
 		(__i) < __mtk_crtc_path_len(mtk_crtc, p_mode, ddp_path) &&   \
@@ -333,6 +336,7 @@ enum DISP_PMQOS_SLOT {
 		(__i)++)                              \
 		for_each_if(comp)
 
+/* this macro gets all ddp_mode's comp id in constant path data */
 #define for_each_comp_id_in_path_data(comp_id, path_data, __i, __j, p_mode)    \
 	for ((p_mode) = 0; (p_mode) < DDP_MODE_NR; (p_mode)++)        \
 		for ((__i) = 0; (__i) < DDP_PATH_NR; (__i)++)             \
@@ -345,6 +349,17 @@ enum DISP_PMQOS_SLOT {
 					[__j - (path_data)->ovl_path_len[p_mode][__i]], \
 				1);                           \
 				(__j)++)
+
+/* this macro fetches specific ddp_mode and ddp_path's comp id in constant path data */
+#define for_each_comp_id_target_mode_path_in_path_data(comp_id, path_data, __j, p_mode, ddp_path) \
+	for ((__j) = 0; (__j) < ((path_data)->ovl_path_len[p_mode][ddp_path] + \
+			(path_data)->path_len[p_mode][ddp_path]) &&  \
+		((comp_id) = (__j < (path_data)->ovl_path_len[p_mode][ddp_path]) ? \
+			(path_data)->ovl_path[p_mode][ddp_path][__j] : \
+			(path_data)->path[p_mode][ddp_path] \
+			[__j - (path_data)->ovl_path_len[p_mode][ddp_path]], \
+		1);                           \
+		(__j)++)
 
 #define for_each_comp_id_in_dual_pipe(comp_id, path_data, __i, __j)    \
 	for ((__i) = 0; (__i) < DDP_SECOND_PATH; (__i)++) \
@@ -562,6 +577,12 @@ enum SLBC_STATE {
 	SLBC_UNREGISTER,
 	SLBC_NEED_FREE,
 	SLBC_CAN_ALLOC,
+};
+
+enum DISP_SMC_CMD {
+	DISP_CMD_CRTC_FIRST_ENABLE,
+	DISP_CMD_CRTC_ENABLE,
+	DISP_CMD_MAX,
 };
 
 struct mtk_crtc_path_data {
@@ -906,6 +927,8 @@ struct mtk_drm_crtc {
 
 	ktime_t pf_time;
 	ktime_t sof_time;
+	ktime_t prev_pf_time;
+	spinlock_t pf_time_lock;
 	struct task_struct *signal_present_fece_task;
 	struct cmdq_cb_data cb_data;
 	atomic_t cmdq_done;
@@ -949,8 +972,6 @@ struct mtk_drm_crtc {
 
 	bool skip_frame;
 	bool is_dsc_output_swap;
-
-	bool dsi_null_pkt_postpone;
 };
 
 struct mtk_crtc_state {
@@ -1161,6 +1182,7 @@ unsigned int mtk_drm_dump_wk_lock(struct mtk_drm_private *priv,
 char *mtk_crtc_index_spy(int crtc_index);
 bool mtk_drm_get_hdr_property(void);
 int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level);
+int mtk_drm_aod_scp_get_dsi_ulps_wakeup_prd(struct drm_crtc *crtc);
 
 int mtk_drm_crtc_wait_blank(struct mtk_drm_crtc *mtk_crtc);
 void mtk_drm_crtc_init_para(struct drm_crtc *crtc);

@@ -20,6 +20,7 @@
 #include "mtk_vcodec_enc_pm.h"
 #include "mtk_vcodec_enc_pm_plat.h"
 #include "venc_drv_if.h"
+#include "mtk-v4l2-vcodec.h"
 
 #define MTK_VENC_MIN_W  160U
 #define MTK_VENC_MIN_H  128U
@@ -224,6 +225,8 @@ void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	struct vb2_buffer *dst_buf;
 	struct venc_inst *inst = (struct venc_inst *)(ctx->drv_handle);
+	unsigned int i, dump_size;
+	char *pbuf, *pdebug_fb, debug_fb[200] = {0};
 
 	mutex_lock(&ctx->buf_lock);
 	do {
@@ -252,6 +255,26 @@ void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 			frm_info = container_of(pfrm,
 				struct mtk_video_enc_buf, frm_buf);
 			src_vb2_v4l2 = &frm_info->vb;
+
+			if (rResult.flags & VENC_FLAG_ENCODE_TIMEOUT && pfrm->fb_addr[0].va != NULL) {
+				mtk_v4l2_debug(0,"venc timeout dump frm_buf %d VA=%p PA=%llx Size=%zx =>",
+				pfrm->index,
+				pfrm->fb_addr[0].va,
+				(u64)pfrm->fb_addr[0].dma_addr,
+				pfrm->fb_addr[0].size);
+
+				pbuf = (char *)pfrm->fb_addr[0].va;
+				dump_size = pfrm->fb_addr[0].size < 256 ? pfrm->fb_addr[i].size: 256;
+				pdebug_fb = debug_fb;
+				for (i = 0; i < dump_size; i++) {
+					pdebug_fb += sprintf(pdebug_fb, "%02x ", pbuf[i]);
+					if ((((i + 1) % 16) == 0) || (i == (dump_size - 1))) {
+						mtk_v4l2_debug(0,"%s", debug_fb);
+						memset(debug_fb, 0, sizeof(debug_fb));
+						pdebug_fb = debug_fb;
+					}
+				}
+			}
 		}
 
 		if (src_vb2_v4l2 != NULL && dst_vb2_v4l2 != NULL) {
@@ -353,13 +376,27 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->bitrate = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_BITRATE;
 		break;
-	case V4L2_CID_MPEG_MTK_SEC_ENCODE:
+	case V4L2_CID_MPEG_MTK_SEC_ENCODE: {
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+		struct vb2_queue *dst_vq;
+
+		if (ctrl->val) {
+			if (vcp_get_io_device(VCP_IOMMU_SEC)) {
+				dst_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+				dst_vq->dev = vcp_get_io_device(VCP_IOMMU_SEC);
+				mtk_v4l2_debug(4, "use VCP_IOMMU_SEC domain");
+			}
+
+		}
+#endif
 		p->svp_mode = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_SEC_ENCODE;
 		mtk_v4l2_debug(0, "[%d] V4L2_CID_MPEG_MTK_SEC_ENCODE id %d val %d array[0] %d array[1] %d",
 			ctx->id, ctrl->id, ctrl->val,
 		ctrl->p_new.p_u32[0], ctrl->p_new.p_u32[1]);
 		break;
+	}
 	case V4L2_CID_MPEG_VIDEO_B_FRAMES:
 		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_B_FRAMES val = %d",
 			       ctrl->val);
@@ -673,6 +710,13 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			"V4L2_CID_MPEG_MTK_ENCODE_MAX_LTR_FRAMES val = %d",
 			ctrl->val);
 		p->max_ltr_num = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_CHROMA_QP:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_CHROMA_QP: cbqp(%d) crqp(%d)",
+			ctrl->p_new.p_s32[0], ctrl->p_new.p_s32[1]);
+		p->cb_qp_offset = ctrl->p_new.p_s32[0];
+		p->cr_qp_offset = ctrl->p_new.p_s32[1];
 		break;
 	default:
 		mtk_v4l2_debug(4, "ctrl-id=%d not support!", ctrl->id);
@@ -1285,6 +1329,8 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->slice_header_spacing = enc_params->slice_header_spacing;
 	param->multi_ref = &enc_params->multi_ref;
 	param->vui_info = &enc_params->vui_info;
+	param->cb_qp_offset = enc_params->cb_qp_offset;
+	param->cr_qp_offset = enc_params->cr_qp_offset;
 }
 
 static int vidioc_venc_subscribe_evt(struct v4l2_fh *fh,
@@ -1642,16 +1688,17 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 			ctx->id, buf->index, vq->num_buffers);
 		return -EINVAL;
 	}
+	if (IS_ERR_OR_NULL(buf->m.planes) || buf->length == 0) {
+		mtk_v4l2_err("[%d] buffer index %d planes address %p 0x%llx or length %d invalid",
+			ctx->id, buf->index, buf->m.planes,
+			(unsigned long long)buf->m.planes, buf->length);
+		return -EINVAL;
+	}
 	vb = vq->bufs[buf->index];
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_enc_buf, vb);
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		if (IS_ERR_OR_NULL(buf->m.planes)) {
-			mtk_v4l2_err("[%d] buffer planes address %p %llx can not access",
-				ctx->id, buf->m.planes, buf->m.planes);
-			return -EIO;
-		}
 		if (buf->m.planes[0].bytesused == 0) {
 			mtkbuf->lastframe = EOS;
 			mtk_v4l2_debug(1, "[%d] index=%d Eos FB(%d,%d) vb=%p pts=%llu",
@@ -2066,6 +2113,8 @@ static int vb2ops_venc_queue_setup(struct vb2_queue *vq,
 	}
 
 	if (*nplanes) {
+		if (*nplanes != q_data->fmt->num_planes)
+			return -EINVAL;
 		for (i = 0; i < *nplanes; i++)
 			if (sizes[i] < q_data->sizeimage[i])
 				return -EINVAL;
@@ -3034,8 +3083,8 @@ static void mtk_venc_worker(struct work_struct *work)
 	}
 
 	for (i = 0; i < src_buf->num_planes ; i++) {
-		if (mtk_v4l2_dbg_level > 0)
-			pfrm_buf->fb_addr[i].va = vb2_plane_vaddr(src_buf, i) +
+		// always map va for fb dump when encode timeout
+		pfrm_buf->fb_addr[i].va = vb2_plane_vaddr(src_buf, i) +
 			(size_t)src_buf->planes[i].data_offset;
 		pfrm_buf->fb_addr[i].dma_addr =
 			vb2_dma_contig_plane_dma_addr(src_buf, i) +
@@ -3771,6 +3820,22 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.def = 0;
 	cfg.ops = ops;
 	cfg.dims[0] = sizeof(struct venc_resolution_change)/sizeof(u32);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	ctx->enc_params.cb_qp_offset = 99;
+	ctx->enc_params.cr_qp_offset = 99;
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_CHROMA_QP;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode Chroma QP";
+	cfg.min = -12;
+	cfg.max = 99;
+	cfg.step = 1;
+	cfg.def = 99;
+	cfg.dims[0] = 2;
+	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	return 0;

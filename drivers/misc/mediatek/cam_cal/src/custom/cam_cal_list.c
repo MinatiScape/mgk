@@ -14,6 +14,7 @@
 
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	/*Below is commom sensor */
+#if 0
 	{OV48B12M_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
 	{OV48B_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
 	{IMX766_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_32K},
@@ -38,6 +39,13 @@ struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	{IMX350_SENSOR_ID, 0xA0, Common_read_region},
 	{IMX386_MONO_SENSOR_ID, 0xA0, Common_read_region},
 	{IMX499_SENSOR_ID, 0xA0, Common_read_region},
+#endif
+    /* prize add by chenwenhui 20240604 for OTP start */
+	{S5K3L8_SENSOR_ID, 0xA2, Common_read_region},
+	{OV50C40_SENSOR_ID, 0xB0, Common_read_region},
+	{GC05A2SUB_SENSOR_ID, 0xB2, Common_read_region},
+    /* prize add by chenwenhui 20240604 for OTP start */
+
 	/*  ADD before this line */
 	{0, 0, 0}       /*end of list */
 };

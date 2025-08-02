@@ -25,7 +25,6 @@ MODULE_LICENSE("GPL");
 #define IB_SAME_CLUSTER		(0x01)
 #define IB_OVERUTILIZATION	(0x04)
 
-DEFINE_PER_CPU(struct update_util_data __rcu *, cpufreq_update_util_data);
 DEFINE_PER_CPU(__u32, active_softirqs);
 
 struct cpumask __cpu_pause_mask;
@@ -143,6 +142,21 @@ void mtk_find_busiest_group(void *data, struct sched_group *busiest,
 		trace_sched_find_busiest_group(src_cpu, dst_cpu, *out_balance, fbg_reason);
 	}
 }
+static inline unsigned long cpu_util_without_removed(int cpu)
+{
+	struct cfs_rq *cfs_rq;
+	unsigned int util,min_uitl = 0;
+
+	cfs_rq = &cpu_rq(cpu)->cfs;
+	util = READ_ONCE(cfs_rq->avg.util_avg);
+	if (cfs_rq->removed.nr)
+		util -=cfs_rq->removed.util_avg;
+
+	max(util,min_uitl);
+	if (sched_feat(UTIL_EST) && is_util_est_enable())
+		util = max(util, READ_ONCE(cfs_rq->avg.util_est.enqueued));
+	return min_t(unsigned long,util,capacity_orig_of(cpu));
+}
 
 void mtk_cpu_overutilized(void *data, int cpu, int *overutilized)
 {
@@ -167,7 +181,7 @@ void mtk_cpu_overutilized(void *data, int cpu, int *overutilized)
 	}
 
 	for_each_cpu(i, perf_domain_span(pd)) {
-		sum_util += cpu_util(i);
+		sum_util += cpu_util_without_removed(i);
 		sum_cap += capacity_of(i);
 	}
 
@@ -1199,6 +1213,7 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 #endif
 
 	cpumask_andnot(&avail_lowest_mask, lowest_mask, cpu_pause_mask);
+	cpumask_and(&avail_lowest_mask, &avail_lowest_mask, cpu_active_mask);
 	if (!ret) {
 		select_reason = LB_RT_NO_LOWEST_RQ;
 		goto out; /* No targets found */

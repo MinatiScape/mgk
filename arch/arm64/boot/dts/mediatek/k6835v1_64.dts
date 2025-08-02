@@ -10,7 +10,7 @@
 #include <dt-bindings/pinctrl/mt6835-pinfunc.h>
 #include "mediatek/mt6835_6377.dtsi"
 #include "mediatek/cust_mt6835_camera.dtsi"
-
+/*
 &mtk_leds {
 	compatible = "mediatek,i2c-leds";
 
@@ -20,7 +20,23 @@
 		pwm_config = <0 1 0 0 0>;
 	};
 };
+*/
+&mtk_leds {
+        compatible = "mediatek,pwm-leds";
+        backlight {
+                led_mode = <5>;
+                pwms = <&disp_pwm 0 39385>;
+                pwm-names = "lcd-backlight";
+                pwm_config = <0 1 0 0 0>;
+        };
+};
 
+//add by wangfei for TEE 20231018 satrt
+/* Trustonic Mobilecore real driver */
+&mobicore{
+	trustonic,real-drv = <1>;
+};
+//add by wangfei for TEE 20231018 end
 &pio {
 	mtkfb_pins_lcm_led_en1: lcm_led_en1_gpio {
 		pins_cmd_dat {
@@ -94,17 +110,21 @@
 };
 &dsi0 {
 	status = "okay";
+	touch,reset-gpio = <&pio 147 0x0>;
+	touch,irq-gpio = <&pio 4 0x0>;
 	#address-cells = <1>;
 	#size-cells = <0>;
 	switch-fps = <90>;
 	switch-mode = "vfp";
 	panel1@0 {
-		compatible = "jdi,nt36672e,cphy,vdo,no,dsc";
+		compatible = "huike,ili9883,vdo";
 		reg = <0>;
-		pm-enable-gpios = <&pio 150 0>;
+		pm-enable-gpios = <&pio 43 0>;
 		reset-gpios = <&pio 86 0>;
-		cphy-sel-gpios = <&pio 133 0>;
+		bias-gpios = <&pio 150 0>,
+				<&pio 151 0>;
 		gate-ic = <4831>;
+		lcd_vdd-supply = <&mt6377_vaud18>;
 		pinctrl-names = "default";
 		port {
 			panel_in1: endpoint {
@@ -113,12 +133,14 @@
 		};
 	};
 	panel2@1 {
-		compatible = "jdi,nt36672e,cphy,vdo,wo,dsc,60hz";
+		compatible = "huayin,ft8057s,vdo";
 		reg = <1>;
-		pm-enable-gpios = <&pio 150 0>;
+		pm-enable-gpios = <&pio 43 0>;
 		reset-gpios = <&pio 86 0>;
-		cphy-sel-gpios = <&pio 133 0>;
+		bias-gpios = <&pio 150 0>,
+				<&pio 151 0>;
 		gate-ic = <4831>;
+		lcd_vdd-supply = <&mt6377_vaud18>;
 		pinctrl-names = "default";
 		port {
 			panel_in2: endpoint {
@@ -127,12 +149,14 @@
 		};
 	};
 	panel3@2 {
-		compatible = "jdi,nt36672e,cphy,vdo,wo,dsc,hfp";
+		compatible = "huashi,ili9883,vdo";
 		reg = <2>;
-		pm-enable-gpios = <&pio 150 0>;
+		pm-enable-gpios = <&pio 43 0>;
 		reset-gpios = <&pio 86 0>;
-		cphy-sel-gpios = <&pio 133 0>;
+		bias-gpios = <&pio 150 0>,
+				<&pio 151 0>;
 		gate-ic = <4831>;
+		lcd_vdd-supply = <&mt6377_vaud18>;
 		pinctrl-names = "default";
 		port {
 			panel_in3: endpoint {
@@ -185,6 +209,7 @@
 		};
 	};
 
+/*
 	ps_enable: ps_enable {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO141__FUNC_GPIO141>;
@@ -198,13 +223,14 @@
 			output-low;
 		};
 	};
+*/
 };
 
 &ps5169 {
-	pinctrl-names = "enable", "disable";
-	pinctrl-0 = <&ps_enable>;
-	pinctrl-1 = <&ps_disable>;
-	status = "okay";
+	//pinctrl-names = "enable", "disable";
+	//pinctrl-0 = <&ps_enable>;
+	//pinctrl-1 = <&ps_disable>;
+	status = "disable";
 };
 
 &fusb304 {
@@ -214,10 +240,20 @@
 	pinctrl-1 = <&sel_down>;
 	pinctrl-2 = <&sw_enable>;
 	pinctrl-3 = <&sw_disable>;
-	status = "okay";
+	status = "disable";
 };
 
+/*
 &mt6375_typec {
+	port {
+		tcpc_typec_usb: endpoint@0 {
+			remote-endpoint = <&ssusb_mux>;
+		};
+	};
+};
+*/
+
+&usb_type_c_aw35616 {
 	port {
 		tcpc_typec_usb: endpoint@0 {
 			remote-endpoint = <&ssusb_mux>;
@@ -297,10 +333,10 @@
 /* GPS GPIO standardization end */
 
 #include "mediatek/cust_mt6835_camera_6377_v4l2.dtsi"
-#include "mediatek/cust_mt6835_touch_6377_1080x2400.dtsi"
+#include "mediatek/cust_mt6835_touch_ft8057s_720x1612.dtsi"
 
 &pdc {
-	pd_vbus_upper_bound = <12000000>;
+	pd-vbus-upper-bound = <9000000>;
 };
 
 &charger{
@@ -308,12 +344,18 @@
 };
 
 &i2c6 {
-	spk: speaker_amp@5c {
-		compatible = "richtek,rt5512";
+	spk: aw87xxx_pa@58 {
+		compatible = "awinic,aw87xxx_pa";
 		#sound-dai-cells = <0>;
-		reg = <0x5c>;
+		reg = <0x58>;
+		dev_index = < 0 >;
+		gpio_hac_en = <&pio 92 0x0>;
 		status = "okay";
-		sound-name-prefix = "Left";
+	};
+	aw3750: aw3750@3e {
+		compatible = "awinic,aw3750";
+		reg = <0x3e>;
+		status = "okay";
 	};
 };
 
@@ -322,6 +364,132 @@
 	mediatek,speaker-codec {
 		sound-dai = <&spk>;
 	};
+};
+
+//add by wangfei for fp 20231018 satrt
+&spi1 {
+	focaltech_fpspi@0 {
+		compatible = "focaltech,fpspi";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+		//pinctrl-names = "ffspi_pins_active";
+		//pinctrl-0 = <&fp_pins_spi_active>;
+		status = "okay";
+	};
+};
+
+&focaltech_fp{
+	status = "okay";
+	interrupt-parent = <&pio>;
+	interrupts = <15 IRQ_TYPE_EDGE_RISING>;
+
+	/*reset & int gpio*/
+	focaltech_fp,reset-gpio = <&pio 07 0>;
+	focaltech_fp,irq-gpio = <&pio 15 0>;
+
+	/*gpio to control the VDD power*/
+	focaltech_fp,vdd-gpio = <&pio 03 0>;
+
+	//focaltech_fp,power-always-on;
+	focaltech_fp,use-regulator;
+	ff_vdd-supply = <&mt6377_vfp>;
+
+	//focaltech_fp,ree;
+	//focaltech_fp,no-screen-on-off;
+	focaltech_fp,spiclk;
+	focaltech_fp,read-chip;
+
+	//focaltech_fp,use-pinctrl;
+	pinctrl-names = "ff_pins_reset_low","ff_pins_reset_high","ff_pins_irq_as_int"/*,"ff_pins_power_low","ff_pins_power_high"*/;
+	pinctrl-0 = <&fp_pins_rst_output0>;
+	pinctrl-1 = <&fp_pins_rst_output1>;
+	pinctrl-2 = <&fp_pins_eint>;
+//	pinctrl-3 = <&fp_pins_power_output0>;
+//	pinctrl-4 = <&fp_pins_power_output1>;
+};
+
+&pio {
+	fp_pins_rst_output0: fprstout0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
+			output-low;
+		};
+	};
+	fp_pins_rst_output1: fprstout1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
+			output-high;
+		};
+	};
+	fp_pins_eint: fpeint {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			bias-disable;
+			input-enable;
+		};
+	};
+	/*
+	fp_pins_power_output0: fppwrout0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-low;
+		};
+	};
+	fp_pins_power_output1: fppwrout1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-high;
+		};
+	};*/
+	fp_pins_spi_active: fpspi_mode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO60__FUNC_SPI1_CLK>,<PINMUX_GPIO61__FUNC_SPI1_CSB>,<PINMUX_GPIO62__FUNC_SPI1_MO>,<PINMUX_GPIO63__FUNC_SPI1_MI>;
+		};
+	};
+};
+//add by wangfei for fp 20231018 end
+
+//prize add for WideVineL1 enable svp
+&mtee_svp {
+	mtee:MTEE {
+		compatible = "mediatek,mtk_svp_on_mtee_support";
+	};
+	svp:SecureVideoPath {
+		compatible = "mediatek,mtk_sec_video_path_support";
+	};
+};
+
+
+// pri add sumsang NFC
+&i2c3  {
+  #address-cells = <1>;
+  #size-cells = <0>;
+  clock-frequency = <400000>;
+  status = "okay";
+
+  sec-nfc@27 {
+    compatible = "sec-nfc";
+    reg = <0x27>;
+
+    sec-nfc,ven-gpio = <&pio 36 0>;
+    sec-nfc,firm-gpio = <&pio 37 0>;
+    sec-nfc,irq-gpio = <&pio 8 0xf>;
+#ifdef CONFIG_SEC_NFC_GPIO_CLK
+    sec-nfc,clk_req-gpio = <&pio 3 0>;
+#endif
+#ifdef CONFIG_SEC_NFC_PMIC_LDO
+    sec-nfc,pmic-ldo = "vdd_ldo20";
+#endif
+#ifdef CONFIG_SEC_NFC_DEDICATED_CLK
+    clkctrl-reg = <0x10e60a0c>;
+#endif
+#ifdef CONFIG_SEC_NFC_GPIO_CLK
+    clock-names = "OSC_NFC";
+    clocks = <&clock OSC_NFC>;
+#endif
+    //pinctrl-names = "default";
+    //pinctrl-0 = <&xclkout1 &nfc_pd &nfc_clkreq>;
+  };
 };
 
 #include <k6835v1_64/cust.dtsi>

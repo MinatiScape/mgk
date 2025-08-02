@@ -11,6 +11,8 @@
 #include <linux/debugfs.h>
 #include <mt-plat/mrdump.h>
 #endif
+#include <linux/panic_notifier.h>
+#include <linux/kdebug.h>
 
 #if IS_ENABLED(CONFIG_PROC_FS)
 #include <linux/proc_fs.h>
@@ -58,6 +60,9 @@
 #define SMI_LARB_VC_PRI_MODE (0x020)
 #define SMI_LARB_NON_SEC_CON(port) (0x380 + 4 * (port))
 #define GET_M4U_PORT 0x1F
+
+int dsi0_panel_id = -1;
+EXPORT_SYMBOL(dsi0_panel_id);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkfb_dbgfs;
@@ -934,7 +939,7 @@ static void mtk_ddic_send_cb(struct cmdq_cb_data data)
 }
 
 int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
-			bool blocking)
+			int blocking)
 {
 	struct drm_crtc *crtc;
 	struct mtk_drm_crtc *mtk_crtc;
@@ -1046,9 +1051,24 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 	}
 
-	if (blocking) {
+	if (blocking == BLOCKING) {
 		cmdq_pkt_flush(cmdq_handle);
 		cmdq_pkt_destroy(cmdq_handle);
+	} else if (blocking == BLOCKING_NOWAIT) {
+		cmdq_pkt_flush_async(cmdq_handle, NULL, NULL);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+
+		DDPMSG("%s flush done\n", __func__);
+		cmdq_pkt_wait_complete(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+
+		DDPMSG("%s - %d\n", __func__, blocking);
+
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, (unsigned long)crtc,
+			blocking);
+
+		return ret;
 	} else {
 		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 		if (!cb_data) {
@@ -2162,105 +2182,47 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	memset(pq_persist_property, 0, sizeof(pq_persist_property));
 	memcpy(pq_persist_property, (unsigned int *)data, sizeof(pq_persist_property));
 
-	for (i = 0; i < DISP_PQ_PROPERTY_MAX; i++)
+	for (i = 0; i < DISP_PQ_PROPERTY_MAX; i++) {
+		m_old_pq_persist_property[i] = m_new_pq_persist_property[i];
 		m_new_pq_persist_property[i] = pq_persist_property[i];
+	}
 
 	DDPFUNC("+");
 
 	if (m_old_pq_persist_property[DISP_PQ_COLOR_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_COLOR_BYPASS])
-		ret |= disp_color_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_COLOR_BYPASS]);
+		disp_color_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_COLOR_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_CCORR_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_CCORR_BYPASS])
-		ret |= disp_ccorr_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_CCORR_BYPASS]);
+		disp_ccorr_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_CCORR_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_GAMMA_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_GAMMA_BYPASS])
-		ret |= disp_gamma_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_GAMMA_BYPASS]);
+		disp_gamma_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_GAMMA_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_DITHER_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_DITHER_BYPASS])
-		ret |= disp_dither_set_bypass(crtc,
-			m_new_pq_persist_property[DISP_PQ_DITHER_BYPASS]);
+		disp_dither_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_DITHER_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_AAL_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_AAL_BYPASS])
-		ret |= disp_aal_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_AAL_BYPASS]);
+		disp_aal_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_AAL_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_C3D_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_C3D_BYPASS])
-		ret |= disp_c3d_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_C3D_BYPASS]);
+		disp_c3d_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_C3D_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_TDSHP_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_TDSHP_BYPASS])
-		ret |= disp_tdshp_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_TDSHP_BYPASS]);
+		disp_tdshp_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_TDSHP_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT] !=
 		m_new_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT])
-		ret |= disp_dither_set_color_detect(crtc,
+		disp_dither_set_color_detect(crtc,
 			m_new_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT]);
 
-	if (ret == 0) {
-		for (i = 0; i < DISP_PQ_PROPERTY_MAX; i++)
-			m_old_pq_persist_property[i] = m_new_pq_persist_property[i];
-	}
-
 	DDPFUNC("-");
-
-	return ret;
-}
-
-int mtk_drm_set_disp_pq_unrelay(struct drm_crtc *crtc)
-{
-	int ret = 0;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_ddp_comp *comp;
-	struct cmdq_pkt *handle;
-	int i, j;
-
-	DDPFUNC("+");
-
-	handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
-	if (!handle) {
-		DDPPR_ERR("%s:%d NULL cmdq handle\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-
-	if (m_old_pq_persist_property[DISP_PQ_COLOR_BYPASS] ||
-		m_old_pq_persist_property[DISP_PQ_CCORR_BYPASS] ||
-		m_old_pq_persist_property[DISP_PQ_GAMMA_BYPASS] ||
-		m_old_pq_persist_property[DISP_PQ_DITHER_BYPASS] ||
-		m_old_pq_persist_property[DISP_PQ_AAL_BYPASS] ||
-		m_old_pq_persist_property[DISP_PQ_C3D_BYPASS] ||
-		m_old_pq_persist_property[DISP_PQ_TDSHP_BYPASS]) {
-
-		DDPFUNC("force display pq unrelay\n");
-		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
-			if (comp && comp->funcs && comp->funcs->bypass)
-				mtk_ddp_comp_bypass(comp, 0, handle);
-		}
-
-		if (mtk_crtc->is_dual_pipe) {
-			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
-				if (comp && comp->funcs && comp->funcs->bypass)
-					mtk_ddp_comp_bypass(comp, 0, handle);
-			}
-		}
-
-		cmdq_pkt_flush(handle);
-
-		m_old_pq_persist_property[DISP_PQ_COLOR_BYPASS] = 0;
-		m_old_pq_persist_property[DISP_PQ_CCORR_BYPASS] = 0;
-		m_old_pq_persist_property[DISP_PQ_GAMMA_BYPASS] = 0;
-		m_old_pq_persist_property[DISP_PQ_DITHER_BYPASS] = 0;
-		m_old_pq_persist_property[DISP_PQ_AAL_BYPASS] = 0;
-		m_old_pq_persist_property[DISP_PQ_C3D_BYPASS] = 0;
-		m_old_pq_persist_property[DISP_PQ_TDSHP_BYPASS] = 0;
-	}
-
-	cmdq_pkt_destroy(handle);
-	DDPFUNC("-(ret: %d)", ret);
 
 	return ret;
 }
@@ -2458,6 +2420,43 @@ static bool is_disp_reg(uint32_t addr, char *comp_name, uint32_t comp_name_len)
 }
 #endif
 
+static void ipanic_lcm_reset(void)
+{
+	struct mtk_ddp_comp *comp;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *priv;
+	int enable;
+
+	if (IS_ERR_OR_NULL(drm_dev)) {
+		DDPPR_ERR("%s, invalid drm dev\n", __func__);
+		return;
+	}
+	/* this debug cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (IS_ERR_OR_NULL(crtc)) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+	priv = crtc->dev->dev_private;
+	if (priv && priv->data && priv->data->mmsys_id != MMSYS_MT6835)
+		return;
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (!comp || !comp->funcs || !comp->funcs->io_cmd) {
+		DDPINFO("cannot find output component\n");
+		return;
+	}
+
+	enable = 0;
+	comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
+	mdelay(10);
+	enable = 1;
+	comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
+}
+
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -2471,13 +2470,16 @@ static void process_dbg_opt(const char *opt)
 		/*ex: echo helper:DISP_OPT_BYPASS_OVL,0 > /d/mtkfb */
 		char option[100] = "";
 		char *tmp;
-		int value, i;
+		int value, i, limited;
 		enum MTK_DRM_HELPER_OPT helper_opt;
-		struct mtk_drm_private *priv =  drm_dev->dev_private;
+		struct mtk_drm_private *priv = drm_dev->dev_private;
 		int ret;
 
 		tmp = (char *)(opt + 7);
+		limited = strlen(tmp);
 		for (i = 0; i < 99; i++) {    /* option[99] should be '\0' to aviod oob */
+			if (i >= limited)
+				return;
 			if (tmp[i] != ',' && tmp[i] != ' ')
 				option[i] = tmp[i];
 			else
@@ -3197,8 +3199,8 @@ static void process_dbg_opt(const char *opt)
 
 		ddic_dsi_read_cmd_test(case_num);
 	} else if (strncmp(opt, "ddic_page_switch:", 17) == 0) {
-		u8 addr, val1, val2, val3;
-		u8 val4, val5, val6;
+		unsigned int addr, val1, val2, val3;
+		unsigned int val4, val5, val6;
 		unsigned int cmd_num, ret;
 
 		ret = sscanf(opt, "ddic_page_switch:%d,%x,%x,%x,%x,%x,%x,%x\n",
@@ -3213,10 +3215,10 @@ static void process_dbg_opt(const char *opt)
 
 		DDPMSG("ddic_spr_switch:%d\n", cmd_num);
 
-		ddic_dsi_send_switch_pgt(cmd_num, addr, val1, val2, val3,
-			val4, val5, val6);
+		ddic_dsi_send_switch_pgt(cmd_num, (u8)addr, (u8)val1,
+			(u8)val2, (u8)val3, (u8)val4, (u8)val5, (u8)val6);
 	} else if (strncmp(opt, "read_cm:", 8) == 0) {
-		u8 addr;
+		unsigned int addr;
 		unsigned int ret;
 
 		ret = sscanf(opt, "read_cm:%x\n", &addr);
@@ -3226,7 +3228,7 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 		DDPMSG("read_cm:%d\n", addr);
-		ddic_dsi_read_cm_cmd(addr);
+		ddic_dsi_read_cm_cmd((u8)addr);
 	} else if (strncmp(opt, "ap_spr_cm_bypass:", 17) == 0) {
 		unsigned int spr_bypass, cm_bypass, ret;
 
@@ -4118,6 +4120,8 @@ static void process_dbg_opt(const char *opt)
 
 		ret = mtk_drm_get_conn_obj_id_from_idx(value, 0);
 		DDPINFO("disp_idx %u, conn_obj_id %d\n", value, ret);
+	} else if (strncmp(opt, "dsi0_panel_id", 13) == 0) {
+		DDPINFO("dsi0_panel_id is %d\n", dsi0_panel_id);
 	}
 
 
@@ -4716,6 +4720,30 @@ out:
 	return simple_read_from_buffer(ubuf, count, ppos, buffer, n);
 }
 
+static int disp_ipanic(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	ipanic_lcm_reset();
+
+	return 0;
+}
+
+static int disp_ipanic_die(struct notifier_block *self, unsigned long cmd, void *ptr)
+{
+	ipanic_lcm_reset();
+
+	return 0;
+}
+
+static struct notifier_block panic_blk = {
+	.notifier_call = disp_ipanic,
+	.priority = 1,
+};
+
+static struct notifier_block die_blk = {
+	.notifier_call = disp_ipanic_die,
+	.priority = 1,
+};
+
 static const struct proc_ops hrt_lp_proc_fops = {
 	.proc_read = hrt_lp_proc_get,
 	.proc_write = hrt_lp_proc_set,
@@ -4822,6 +4850,8 @@ void disp_dbg_probe(void)
 #endif
 
 	mtk_dp_debugfs_init();
+	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
+	register_die_notifier(&die_blk);
 
 out:
 	return;

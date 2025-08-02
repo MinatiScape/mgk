@@ -414,6 +414,88 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 		info->data.temp_neg_10_thres = TEMP_NEG_10_THRES;
 	}
 
+	/*prize LiuYong, modify for charging current config, 20230323 -start*/
+	if (of_property_read_u32(np, "jeita_temp_t0_to_t1_input_current", &val) >= 0)
+		info->data.jeita_temp_t0_to_t1_input_current = val;
+	else {
+		chr_err("use default jeita_temp_t0_to_t1_input_current:%d\n",
+			JEITA_TEMP_T0_TO_T1_INPUT_CURRENT);
+		info->data.jeita_temp_t0_to_t1_input_current = JEITA_TEMP_T0_TO_T1_INPUT_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t0_to_t1_charging_current", &val) >= 0)
+		info->data.jeita_temp_t0_to_t1_charging_current = val;
+	else {
+		chr_err("use default jeita_temp_t0_to_t1_charging_current:%d\n",
+			JEITA_TEMP_T0_TO_T1_CHARGING_CURRENT);
+		info->data.jeita_temp_t0_to_t1_charging_current = JEITA_TEMP_T0_TO_T1_CHARGING_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t1_to_t2_input_current", &val) >= 0)
+		info->data.jeita_temp_t1_to_t2_input_current = val;
+	else {
+		chr_err("use default jeita_temp_t1_to_t2_input_current:%d\n",
+			JEITA_TEMP_T1_TO_T2_INPUT_CURRENT);
+		info->data.jeita_temp_t1_to_t2_input_current = JEITA_TEMP_T1_TO_T2_INPUT_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t1_to_t2_charging_current", &val) >= 0)
+		info->data.jeita_temp_t1_to_t2_charging_current = val;
+	else {
+		chr_err("use default jeita_temp_t1_to_t2_charging_current:%d\n",
+			JEITA_TEMP_T1_TO_T2_CHARGING_CURRENT);
+		info->data.jeita_temp_t1_to_t2_charging_current = JEITA_TEMP_T1_TO_T2_CHARGING_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t2_to_t3_input_current", &val) >= 0)
+		info->data.jeita_temp_t2_to_t3_input_current = val;
+	else {
+		chr_err("use default jeita_temp_t2_to_t3_input_current:%d\n",
+			JEITA_TEMP_T2_TO_T3_INPUT_CURRENT);
+		info->data.jeita_temp_t2_to_t3_input_current = JEITA_TEMP_T2_TO_T3_INPUT_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t2_to_t3_charging_current", &val) >= 0)
+		info->data.jeita_temp_t2_to_t3_charging_current = val;
+	else {
+		chr_err("use default jeita_temp_t2_to_t3_charging_current:%d\n",
+			JEITA_TEMP_T2_TO_T3_CHARGING_CURRENT);
+		info->data.jeita_temp_t2_to_t3_charging_current = JEITA_TEMP_T2_TO_T3_CHARGING_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t3_to_t4_input_current", &val) >= 0)
+		info->data.jeita_temp_t3_to_t4_input_current = val;
+	else {
+		chr_err("use default jeita_temp_t3_to_t4_input_current:%d\n",
+			JEITA_TEMP_T3_TO_T4_INPUT_CURRENT);
+		info->data.jeita_temp_t3_to_t4_input_current = JEITA_TEMP_T3_TO_T4_INPUT_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t3_to_t4_charging_current", &val) >= 0)
+		info->data.jeita_temp_t3_to_t4_charging_current = val;
+	else {
+		chr_err("use default jeita_temp_t3_to_t4_charging_current:%d\n",
+			JEITA_TEMP_T3_TO_T4_CHARGING_CURRENT);
+		info->data.jeita_temp_t3_to_t4_charging_current = JEITA_TEMP_T3_TO_T4_CHARGING_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "temp_screen_on_input_current", &val) >= 0)
+		info->data.temp_screen_on_input_current = val;
+	else {
+		chr_err("use default temp_screen_on_input_current:%d\n",
+			1500000);
+		info->data.temp_screen_on_input_current = 1500000;
+	}
+
+	if (of_property_read_u32(np, "temp_screen_on_charging_current", &val) >= 0)
+		info->data.temp_screen_on_charging_current = val;
+	else {
+		chr_err("use default temp_screen_on_charging_current:%d\n",
+			1500000);
+		info->data.temp_screen_on_charging_current = 1500000;
+	}
+	/*prize LiuYong, modify for charging current config, 20230323 -end*/
+
 	/* battery temperature protection */
 	info->thermal.sm = BAT_TEMP_NORMAL;
 	info->thermal.enable_min_charge_temp =
@@ -787,6 +869,36 @@ static ssize_t sw_jeita_store(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RW(sw_jeita);
 /* sw jeita end*/
+
+static ssize_t sw_ovp_threshold_show(struct device *dev, struct device_attribute *attr,
+					       char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+
+	chr_err("%s: %d\n", __func__, pinfo->data.max_charger_voltage);
+	return sprintf(buf, "%d\n", pinfo->data.max_charger_voltage);
+}
+
+static ssize_t sw_ovp_threshold_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t size)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	signed int temp;
+
+	if (kstrtoint(buf, 10, &temp) == 0) {
+		if (temp < 0)
+			pinfo->data.max_charger_voltage = pinfo->data.vbus_sw_ovp_voltage;
+		else
+			pinfo->data.max_charger_voltage = temp;
+		chr_err("%s: %d\n", __func__, pinfo->data.max_charger_voltage);
+
+	} else {
+		chr_err("%s: format error!\n", __func__);
+	}
+	return size;
+}
+
+static DEVICE_ATTR_RW(sw_ovp_threshold);
 
 static ssize_t chr_type_show(struct device *dev, struct device_attribute *attr,
 					       char *buf)
@@ -2390,6 +2502,19 @@ static bool charger_init_algo(struct mtk_charger *info)
 	}
 	idx++;
 
+	alg = get_chg_alg_by_name("pe45");
+	info->alg[idx] = alg;
+	if (alg == NULL)
+		chr_err("get pe45 fail\n");
+	else {
+		chr_err("get pe45 success\n");
+		alg->config = info->config;
+		alg->alg_id = PE4_ID;
+		chg_alg_init_algo(alg);
+		register_chg_alg_notifier(alg, &info->chg_alg_nb);
+	}
+	idx++;
+
 	alg = get_chg_alg_by_name("pe4");
 	info->alg[idx] = alg;
 	if (alg == NULL)
@@ -2926,6 +3051,88 @@ static void mtk_charger_init_timer(struct mtk_charger *info)
 
 }
 
+/* prize liuyong, add charging limit node 20230605 start */
+static ssize_t show_cmd_charge_disable(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mtk_charger *info = dev->driver_data;
+
+	pr_info("[charge] %s : %d\n",__func__, info->cmd_discharging);
+	return sprintf(buf, "%d\n",info->cmd_discharging);
+}
+
+static ssize_t store_cmd_charge_disable(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct mtk_charger  *pinfo = dev->driver_data;
+	unsigned int reg = 0;
+	int ret = 0;
+	//FIXME:prize-Solve 90% of the problems not as of charging-pengzhipeng-20220725-start
+	bool dvchg1_chip_enabled = false;
+	//struct chg_alg_device *alg;
+
+	charger_dev_is_enabled(pinfo->dvchg1_dev, &dvchg1_chip_enabled);
+	//FIXME:prize-Solve 90% of the problems not as of charging-pengzhipeng-20220725-end
+
+	pr_info("[charge] %s\n", __func__);
+	if (buf != NULL && size != 0) {
+		pr_info("[store_cmd_charge_disable] buf is %s and size is %zu\n", buf, size);
+		ret = kstrtouint(buf, 16, &reg);
+		if(reg == 1){
+		   pinfo->cmd_discharging = true;
+#if IS_ENABLED(CONFIG_PRIZE_MT5728_SUPPORT_30W)
+			/* Turn wireless charge off if support */
+			turn_off_5728(1);
+			//turn_off_5725(1);
+			//set_wireless_disable_flag(true);
+#endif /*CONFIG_PRIZE_MT5725_SUPPORT_15W*/
+		}else if(reg == 0){
+#if IS_ENABLED(CONFIG_PRIZE_MT5728_SUPPORT_30W)
+			/* Resume wireless charge on if support */
+			turn_off_5728(0);
+			//set_wireless_disable_flag(false);
+			//turn_off_5725(0);
+#endif /*CONFIG_PRIZE_MT5725_SUPPORT_15W*/
+		   pinfo->cmd_discharging = false;
+		}else{
+		  pr_info("[store_cmd_charge_disable] input err please 0 or 1\n");
+		}
+
+		if((pinfo->chr_type != POWER_SUPPLY_USB_TYPE_UNKNOWN) && (reg == 1)){
+		   charger_dev_enable(pinfo->chg1_dev, false);
+		   //FIXME:prize-Solve 90% of the problems not as of charging-pengzhipeng-20220725-start
+		   if(dvchg1_chip_enabled){
+			   charger_dev_enable(pinfo->dvchg1_dev, false);
+			  // charger_dev_enable_chip(pinfo->chg2_dev, false);
+		   }
+		   //FIXME:prize-Solve 90% of the problems not as of charging-pengzhipeng-20220725-end
+		   charger_dev_do_event(pinfo->chg1_dev,EVENT_DISCHARGE, 0);
+		   pr_info("[store_cmd_charge_disable] disable charge\n");
+		}else if((pinfo->chr_type != POWER_SUPPLY_USB_TYPE_UNKNOWN) && (reg == 0)){
+/*
+			for (i = 0; i < MAX_ALG_NO; i++)
+			{
+				alg = pinfo->alg[i];
+				chg_alg_plugout_reset(alg);
+			}
+*/
+		   charger_dev_enable(pinfo->chg1_dev, true);
+		   //FIXME:prize-Solve 90% of the problems not as of charging-pengzhipeng-20220725-start
+		   charger_dev_enable(pinfo->dvchg1_dev, true);
+		   //mtk_pe50_set_is_enable(pinfo, true);
+		   //FIXME:prize-Solve 90% of the problems not as of charging-pengzhipeng-20220725-end
+		   charger_dev_do_event(pinfo->chg1_dev,EVENT_RECHARGE, 0);
+		   pr_info("[store_cmd_charge_disable]  enable charge \n");
+		}else {
+		   pr_info("[store_cmd_charge_disable]  No USB connection \n");
+		}
+	}
+	return size;
+}
+
+static DEVICE_ATTR(cmd_charge_disable, 0664, show_cmd_charge_disable,
+		store_cmd_charge_disable);
+/* prize liuyong, add charging limit node 20230605 end */
 static int mtk_charger_setup_files(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2933,6 +3140,10 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	struct mtk_charger *info = platform_get_drvdata(pdev);
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_sw_jeita);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_sw_ovp_threshold);
 	if (ret)
 		goto _out;
 
@@ -3023,6 +3234,11 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	ret = device_create_file(&(pdev->dev), &dev_attr_sc_ibat_limit);
 	if (ret)
 		goto _out;
+	/* prize liuyong, add charging limit node 20230605 start */
+	ret = device_create_file(&(pdev->dev), &dev_attr_cmd_charge_disable);
+	if (ret)
+		goto _out;
+	/* prize liuyong, add charging limit node 20230605 end */
 
 	battery_dir = proc_mkdir("mtk_battery_cmd", NULL);
 	if (!battery_dir) {
@@ -3062,6 +3278,452 @@ fail_procfs:
 _out:
 	return ret;
 }
+
+// drv add tankaikun, add facoryt charger class, 20231204 start
+#if IS_ENABLED(CONFIG_FACTORY_CHARGE)
+static int mtk_map_fast_chrg_type(int alg_id) {
+	int i;
+	struct mtk_fast_chg_type_map fast_chg_type_maps[] = {
+		{MTK_FAST_CHARGER_TYPE_UNKNOWN, 0},
+		{MTK_FAST_CHARGER_TYPE_PEP, PE_ID},
+		{MTK_FAST_CHARGER_TYPE_PE20, PE2_ID},
+		{MTK_FAST_CHARGER_TYPE_PDC, PDC_ID},
+		{MTK_FAST_CHARGER_TYPE_PE40, PE4_ID},
+		{MTK_FAST_CHARGER_TYPE_PE50, PE5_ID},
+		{MTK_FAST_CHARGER_TYPE_HVBP, HVBP_ID},
+		{MTK_FAST_CHARGER_TYPE_PE5P, PE5P_ID},
+		{MTK_FAST_CHARGER_TYPE_WIRELESS_FAST, WL_ID},
+	};
+
+    for (i = 0; i<MTK_FAST_CHARGER_TYPE_MAX; i++) {
+        if (fast_chg_type_maps[i].fast_chrg_id == alg_id)
+            return fast_chg_type_maps[i].fast_chg_type;
+	}
+
+    return MTK_FAST_CHARGER_TYPE_UNKNOWN;
+}
+
+int is_chg2_exist = 0;
+EXPORT_SYMBOL_GPL(is_chg2_exist);
+#if IS_ENABLED(CONFIG_SECOND_CHARGER_SUPPORT)
+static ssize_t chg2_exist_show(struct class *class, struct class_attribute *attr,	char *buf)
+{
+	struct charger_device *chg_dev = get_charger_by_name("primary_dvchg");
+	if(chg_dev){
+		is_chg2_exist = 1;
+	}
+	return sprintf(buf, "%u\n", is_chg2_exist);
+}
+#endif /* CONFIG_SECOND_CHARGER_SUPPORT */
+
+static ssize_t charger_type_show(struct class *class, struct class_attribute *attr,	char *buf)
+{
+	struct power_supply *chrg_psy = NULL;
+	struct mtk_charger *info = NULL;
+	int chrg_type = MTK_FAST_CHARGER_TYPE_UNKNOWN;
+
+	chrg_psy = power_supply_get_by_name("mtk-master-charger");
+	if(chrg_psy == NULL){
+		pr_err("[factroy_charge]get chrg_psy err\n");
+		return sprintf(buf, "%s\n", mtk_chg_type_name_list[chrg_type]);
+	}
+	info = (struct mtk_charger *)power_supply_get_drvdata(chrg_psy);
+
+	pr_err("get_charger_type: %d\n", get_charger_type(info));
+
+	switch (get_charger_type(info)) {
+		case POWER_SUPPLY_TYPE_UNKNOWN:
+			chrg_type = MTK_CHARGER_TYPE_UNKNOWN;
+			break;
+		case POWER_SUPPLY_TYPE_USB:
+			chrg_type = MTK_CHARGER_TYPE_SDP;
+			break;
+		case POWER_SUPPLY_TYPE_USB_CDP:
+			chrg_type = MTK_CHARGER_TYPE_CDP;
+			break;
+		case POWER_SUPPLY_TYPE_USB_DCP:
+			chrg_type = MTK_CHARGER_TYPE_DCP;
+			break;
+		default:
+			chrg_type = MTK_CHARGER_TYPE_UNKNOWN;
+			break;
+	}
+
+	return sprintf(buf, "%s\n", mtk_chg_type_name_list[chrg_type]);
+}
+
+static ssize_t fast_charger_show(struct class *class, struct class_attribute *attr,	char *buf)
+{
+	bool is_detected = false;
+	int i, ret;
+	struct chg_alg_device *alg = NULL;
+	struct mtk_charger *info = NULL;
+	struct power_supply *chrg_psy = NULL;
+
+	chrg_psy = power_supply_get_by_name("mtk-master-charger");
+	if(chrg_psy == NULL){
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto out;
+	}
+	info = (struct mtk_charger *)power_supply_get_drvdata(chrg_psy);
+	if(!info){
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto out;
+	}
+
+	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
+		is_detected = true;
+		goto out;
+	}
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = info->alg[i];
+		if (alg == NULL)
+			continue;
+		ret = chg_alg_is_algo_ready(alg);
+		if(alg->alg_id == PE5_ID) {
+			if (ret == ALG_RUNNING && alg->pe_ready_check_done){
+				is_detected = true;
+				chr_err("[factroy_charge] %s: i:%d,alg->id = %d, detect = %d\n", __func__, i,alg->alg_id, is_detected);
+				break;
+			}
+		} else {
+			if (ret == ALG_RUNNING) {
+				is_detected = true;
+				chr_err("[factroy_charge] %s: i:%d,alg->id = %d, detect = %d\n", __func__, i,alg->alg_id, is_detected);
+				break;
+			}
+		}
+	}
+
+out:
+	return sprintf(buf, "%d\n", is_detected);
+}
+
+static ssize_t charger_algo_show(struct class *class, struct class_attribute *attr,	char *buf)
+{
+	int i, ret, alg_id=0;
+	struct chg_alg_device *alg = NULL;
+	struct mtk_charger *info = NULL;
+	struct power_supply *chrg_psy = NULL;
+
+	chrg_psy = power_supply_get_by_name("mtk-master-charger");
+	if(chrg_psy == NULL) {
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+	info = (struct mtk_charger *)power_supply_get_drvdata(chrg_psy);
+	if(!info) {
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = info->alg[i];
+		if (alg == NULL)
+			continue;
+		ret = chg_alg_is_algo_ready(alg);
+		if(alg->alg_id == PE5_ID) {
+			if (ret == ALG_RUNNING && alg->pe_ready_check_done){
+				alg_id = alg->alg_id;
+				break;
+			}
+		} else {
+			if (ret == ALG_RUNNING) {
+				alg_id = alg->alg_id;
+				break;
+			}
+		}
+	}
+
+failed:
+	return sprintf(buf, "%s\n", mtk_fast_chg_algo_list[mtk_map_fast_chrg_type(alg_id)]);
+}
+
+static ssize_t fast_charger_enable_show(struct class *class, struct class_attribute *attr,	char *buf)
+{
+	bool is_detected = false;
+	int i, ret;
+	struct chg_alg_device *alg = NULL;
+	struct mtk_charger *info = NULL;
+	struct power_supply *chrg_psy = NULL;
+
+	chrg_psy = power_supply_get_by_name("mtk-master-charger");
+	if(chrg_psy == NULL){
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+	info = (struct mtk_charger *)power_supply_get_drvdata(chrg_psy);
+	if(!info) {
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = info->alg[i];
+		if (alg == NULL)
+			continue;
+		ret = chg_alg_is_algo_ready(alg);
+		if(alg->alg_id == PE5_ID) {
+			if (ret == ALG_RUNNING && alg->pe_ready_check_done){
+				is_detected = true;
+				chr_err("[factroy_charge] %s: i:%d,alg->id = %d, detect = %d\n", __func__, i,alg->alg_id, is_detected);
+				break;
+			}
+		} else {
+			if (ret == ALG_RUNNING) {
+				is_detected = true;
+				chr_err("[factroy_charge] %s: i:%d,alg->id = %d, detect = %d\n", __func__, i,alg->alg_id, is_detected);
+				break;
+			}
+		}
+	}
+
+failed:
+	return sprintf(buf, "%d\n", is_detected);
+}
+
+static ssize_t fast_charger_support_show(struct class *class, struct class_attribute *attr,	char *buf)
+{
+	bool fast_charge_support = false;
+	int i;
+	struct chg_alg_device *alg = NULL;
+	struct mtk_charger *info = NULL;
+	struct power_supply *chrg_psy = NULL;
+
+	chrg_psy = power_supply_get_by_name("mtk-master-charger");
+	if(chrg_psy == NULL) {
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+	info = (struct mtk_charger *)power_supply_get_drvdata(chrg_psy);
+	if(!info) {
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = info->alg[i];
+		if (alg == NULL)
+			continue;
+		fast_charge_support = true;
+	}
+
+failed:
+	return sprintf(buf, "%d\n",fast_charge_support);
+}
+
+static ssize_t fast_charger_power_show(struct class *class, struct class_attribute *attr,	char *buf)
+{
+	int i, ret, pwr=10;
+	struct chg_alg_device *alg = NULL;
+	struct mtk_charger *info = NULL;
+	struct power_supply *chrg_psy = NULL;
+
+	chrg_psy = power_supply_get_by_name("mtk-master-charger");
+	if(chrg_psy == NULL){
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+	info = (struct mtk_charger *)power_supply_get_drvdata(chrg_psy);
+	if(!info) {
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = info->alg[i];
+		if (alg == NULL)
+			continue;
+		ret = chg_alg_is_algo_ready(alg);
+		if (ret == ALG_RUNNING && alg->pe_ready_check_done) {
+			chg_alg_get_prop(alg, ALG_CHARGE_PWR, &pwr);
+			break;
+		}
+	}
+
+failed:
+	return sprintf(buf, "%d\n", pwr);
+}
+
+#if 0
+static ssize_t show_cmd_charge_disable(struct class *class, struct class_attribute *attr,	char *buf)
+{
+	struct mtk_charger *info = NULL;
+	struct power_supply *chrg_psy = NULL;
+
+	chrg_psy = power_supply_get_by_name("mtk-master-charger");
+	if(chrg_psy == NULL) {
+		pr_err("get bat_psy err\n");
+		return 0;
+	}
+
+	info = (struct mtk_charger *)power_supply_get_drvdata(chrg_psy);
+	if(!info) {
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+
+	pr_info("[factroy_charge] %s : %d\n",__func__, info->cmd_discharging);
+
+	return sprintf(buf, "%d\n",info->cmd_discharging);
+failed:
+	return sprintf(buf, "%d\n",0);
+}
+
+static ssize_t store_cmd_charge_disable(struct class *class, struct class_attribute *attr,
+						const char *buf, size_t count)
+{
+	unsigned int reg = 0;
+	int ret = 0,i = 0;
+	struct chg_alg_device *alg;
+	struct mtk_charger *info = NULL;
+	struct power_supply *chrg_psy = NULL;
+
+	chrg_psy = power_supply_get_by_name("mtk-master-charger");
+	if(chrg_psy == NULL){
+		pr_err("get bat_psy err\n");
+		return 0;
+	}
+
+	info = (struct mtk_charger *)power_supply_get_drvdata(chrg_psy);
+	if(!info) {
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+
+	pr_info("[factroy_charge] %s\n", __func__);
+	if (buf != NULL && count != 0) {
+		pr_info("[factroy_charge][store_cmd_charge_disable] buf is %s and size is %zu\n", buf, count);
+		ret = kstrtouint(buf, 16, &reg);
+		if(reg == 1) {
+			info->cmd_discharging = true;
+		} else if(reg == 0){
+			info->cmd_discharging = false;
+		} else{
+			pr_info("[factroy_charge][store_cmd_charge_disable] input err please 0 or 1\n");
+		}
+
+		if((info->chr_type != POWER_SUPPLY_USB_TYPE_UNKNOWN) && (reg == 1)){
+			charger_dev_enable(info->chg1_dev, false);
+			charger_dev_do_event(info->chg1_dev,EVENT_DISCHARGE, 0);
+			charger_dev_enable_hz(info->chg1_dev, true);
+			pr_info("[factroy_charge][store_cmd_charge_disable] disable charge\n");
+		} else if((info->chr_type != POWER_SUPPLY_USB_TYPE_UNKNOWN) && (reg == 0)){
+			for (i = 0; i < MAX_ALG_NO; i++)
+			{
+				alg = info->alg[i];
+				chg_alg_plugout_reset(alg);
+			}
+			charger_dev_enable_hz(info->chg1_dev, false);
+			charger_dev_enable(info->chg1_dev, true);
+			charger_dev_do_event(info->chg1_dev,EVENT_RECHARGE, 0);
+			pr_info("[factroy_charge][store_cmd_charge_disable] enable charge \n");
+		} else {
+			pr_info("[factroy_charge][store_cmd_charge_disable] No USB connection \n");
+		}
+	}
+failed:
+	return count;
+}
+#endif
+
+static ssize_t show_cmd_debug_temp(struct class *class, struct class_attribute *attr,	char *buf)
+{
+	struct mtk_charger *info = NULL;
+	struct power_supply *chrg_psy = NULL;
+
+	chrg_psy = power_supply_get_by_name("mtk-master-charger");
+	if(chrg_psy == NULL) {
+		pr_err("get bat_psy err\n");
+		return 0;
+	}
+
+	info = (struct mtk_charger *)power_supply_get_drvdata(chrg_psy);
+	if(!info) {
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+
+	pr_info("[factroy_charge] %s : %d:%d\n",__func__, info->debug_temp_en,info->debug_temp);
+
+	return sprintf(buf, "%d:%d\n",info->debug_temp_en, info->debug_temp);
+failed:
+	return sprintf(buf, "%d:%d\n",0,0);
+}
+
+static ssize_t store_cmd_debug_temp(struct class *class, struct class_attribute *attr,
+						const char *buf, size_t count)
+{
+	int reg = 0;
+	int ret = 0;
+	struct mtk_charger *info = NULL;
+	struct power_supply *chrg_psy = NULL;
+
+	chrg_psy = power_supply_get_by_name("mtk-master-charger");
+	if(chrg_psy == NULL){
+		pr_err("get bat_psy err\n");
+		return 0;
+	}
+
+	info = (struct mtk_charger *)power_supply_get_drvdata(chrg_psy);
+	if(!info) {
+		pr_err("[factroy_charge] get chrg_psy err\n");
+		goto failed;
+	}
+
+	if (buf != NULL && count != 0) {
+		pr_info("[factroy_charge][store_cmd_charge_disable] buf is %s and size is %zu\n", buf, count);
+		ret = kstrtouint(buf, 10, &reg);
+		pr_err("[factroy_charge][store_cmd_charge_disable] reg=%d \n", reg);
+		if(reg == MTK_DEBUG_TEMP_EN_CMD) {
+			info->debug_temp_en = true;
+			info->debug_temp = 25;
+		} else if(reg == MTK_DEBUG_TEMP_DIS_CMD){
+			info->debug_temp_en = false;
+			info->debug_temp = 25;
+		} else{
+			info->debug_temp = reg;
+		}
+	}
+failed:
+	return count;
+}
+
+static struct class * factory_charger_class;
+static struct class_attribute factory_charger_class_attrs[] = {
+#if IS_ENABLED(CONFIG_SECOND_CHARGER_SUPPORT)
+	__ATTR(chg2_exist, S_IRUGO, chg2_exist_show, NULL),
+#endif /* CONFIG_SECOND_CHARGER_SUPPORT  */
+	__ATTR(fast_charger, S_IRUGO, fast_charger_show, NULL),
+	__ATTR(fast_charger_enable, S_IRUGO, fast_charger_enable_show, NULL),
+	__ATTR(fast_charger_support, S_IRUGO, fast_charger_support_show, NULL),
+	__ATTR(fast_charger_pwr, S_IRUGO,fast_charger_power_show, NULL),
+	__ATTR(charger_type, S_IRUGO, charger_type_show, NULL),
+	__ATTR(charger_algo, S_IRUGO, charger_algo_show, NULL),
+	//__ATTR(cmd_charge_disable, S_IRUGO | S_IWUSR, show_cmd_charge_disable, store_cmd_charge_disable),
+	__ATTR(cmd_debug_temp, S_IRUGO | S_IWUSR, show_cmd_debug_temp, store_cmd_debug_temp),
+	__ATTR_NULL,
+};
+
+static int factory_charger_sysfs_create(void)
+{
+	int i = 0,ret = 0;
+	factory_charger_class = class_create(THIS_MODULE, "factory_charger");
+	if (IS_ERR(factory_charger_class))
+		return PTR_ERR(factory_charger_class);
+	for (i = 0; factory_charger_class_attrs[i].attr.name; i++) {
+		ret = class_create_file(factory_charger_class,&factory_charger_class_attrs[i]);
+		if (ret < 0)
+		{
+			pr_err("factory_charger sysfs create error !!\n");
+			return ret;
+		}
+	}
+	return ret;
+}
+#endif /* CONFIG_FACTORY_CHARGE */
+// drv add tankaikun, add facoryt charger class, 20231204 end
 
 void mtk_charger_get_atm_mode(struct mtk_charger *info)
 {
@@ -3134,6 +3796,11 @@ static int psy_charger_get_property(struct power_supply *psy,
 	if (info->psy1 != NULL &&
 		info->psy1 == psy)
 		chg = info->chg1_dev;
+	/* prize liuyong add for usb supply config, 20231122, start */
+	else if (info->usb_psy != NULL &&
+		info->usb_psy == psy)
+		chg = info->chg1_dev;
+	/* prize liuyong add for usb supply config, 20231122, end */
 	else if (info->psy2 != NULL &&
 		info->psy2 == psy)
 		chg = info->chg2_dev;
@@ -3164,8 +3831,11 @@ static int psy_charger_get_property(struct power_supply *psy,
 			}
 			break;
 		}
-
-		val->intval = is_charger_exist(info);
+		/* prize liuyong add for usb supply config, 20231122, start */
+		if (info->chr_type == POWER_SUPPLY_TYPE_USB ||
+			info->chr_type == POWER_SUPPLY_TYPE_USB_CDP)
+			val->intval = is_charger_exist(info);
+		/* prize liuyong add for usb supply config, 20231122, start */
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		if (chg != NULL)
@@ -3319,6 +3989,11 @@ int psy_charger_set_property(struct power_supply *psy,
 	if (info->psy1 != NULL &&
 		info->psy1 == psy)
 		idx = CHG1_SETTING;
+	/* prize liuyong add for usb supply config, 20231122, start */
+	else if (info->usb_psy != NULL &&
+		info->usb_psy == psy)
+		idx = CHG1_SETTING;
+	/* prize liuyong add for usb supply config, 20231122, end */
 	else if (info->psy2 != NULL &&
 		info->psy2 == psy)
 		idx = CHG2_SETTING;
@@ -3503,6 +4178,54 @@ int chg_alg_event(struct notifier_block *notifier,
 	return NOTIFY_DONE;
 }
 
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+/* prize LiuYong 20240219, modify to full time start */
+bool get_screen_on_status()
+{
+	struct power_supply *psy;
+	static struct mtk_charger *info;
+
+	if (info == NULL) {
+		psy = power_supply_get_by_name("mtk-master-charger");
+		if (psy == NULL)
+			return false;
+		else {
+			info =
+			(struct mtk_charger *)power_supply_get_drvdata(psy);
+			if (info == NULL)
+				return false;
+			else
+				return info->is_screen_on;
+		}
+	} else
+		return info->is_screen_on;
+}
+EXPORT_SYMBOL(get_screen_on_status);
+/* prize LiuYong 20240219, modify to full time end */
+static int charger_disp_notifier_callback(struct notifier_block *nb,
+	unsigned long value, void *v)
+{
+	struct mtk_charger *info = container_of(nb, struct mtk_charger, disp_notifier);
+	int *data = (int *)v;
+
+	if (info && v) {
+		//cts_err("%s IN", __func__);
+		if (value == MTK_DISP_EARLY_EVENT_BLANK) {
+			if (*data == MTK_DISP_BLANK_POWERDOWN) {
+				info->is_screen_on = false;
+			}
+		} else if (value == MTK_DISP_EVENT_BLANK) {
+			if (*data == MTK_DISP_BLANK_UNBLANK) {
+				info->is_screen_on = true;
+			}
+		}
+	} else {
+		return -1;
+	}
+
+	return 0;
+}
+#endif
 static char *mtk_charger_supplied_to[] = {
 	"battery"
 };
@@ -3512,6 +4235,11 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	struct mtk_charger *info = NULL;
 	int i;
 	char *name = NULL;
+	/* prize add by liuyong, modify for screen on charging 20230315 start */
+	#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	int ret;
+	#endif
+	/* prize add by liuyong, modify for screen on charging 20230315 end */
 
 	chr_err("%s: starts\n", __func__);
 
@@ -3674,6 +4402,24 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (IS_ERR(info->psy_hvdvchg2))
 		chr_err("register psy hvdvchg2 fail:%ld\n",
 					PTR_ERR(info->psy_hvdvchg2));
+	/* prize liuyong, add for charging config, 20231018, start*/
+	info->usb_desc.name = "usb";
+	info->usb_desc.type = POWER_SUPPLY_TYPE_USB;
+	info->usb_desc.properties = charger_psy_properties;
+	info->usb_desc.num_properties =
+						ARRAY_SIZE(charger_psy_properties);
+	info->usb_desc.get_property = psy_charger_get_property;
+	info->usb_desc.set_property = psy_charger_set_property;
+	info->usb_desc.property_is_writeable =
+						psy_charger_property_is_writeable;
+	info->usb_cfg.drv_data = info;
+	info->usb_psy = power_supply_register(&pdev->dev,
+						   &info->usb_desc,
+						   &info->usb_cfg);
+	if (IS_ERR(info->usb_psy))
+		chr_err("register psy usb_psy fail:%ld\n",
+					PTR_ERR(info->usb_psy));
+	/* prize liuyong, add for charging config, 20231018, end*/
 
 	info->log_level = CHRLOG_ERROR_LEVEL;
 
@@ -3685,6 +4431,12 @@ static int mtk_charger_probe(struct platform_device *pdev)
 		register_adapter_device_notifier(info->pd_adapter,
 						 &info->pd_nb);
 	}
+
+// drv add tankaikun, add facoryt charger class, 20231204, start
+#if IS_ENABLED(CONFIG_FACTORY_CHARGE)
+	factory_charger_sysfs_create();
+#endif /*CONFIG_FACTORY_CHARGE*/
+// drv add tankaikun, add facoryt charger class, 20231204, end
 
 	sc_init(&info->sc);
 	info->chg_alg_nb.notifier_call = chg_alg_event;
@@ -3699,6 +4451,19 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (info != NULL && info->bootmode != 8 && info->bootmode != 9)
 		mtk_charger_force_disable_power_path(info, CHG1_SETTING, true);
 
+/* prize add by liuyong, modify for screen on charging 20230315 start */
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	info->disp_notifier.notifier_call = charger_disp_notifier_callback;
+	ret = mtk_disp_notifier_register("screen monitor", &info->disp_notifier);
+	if (ret) {
+		pr_err("Failed to register screen monitor notifier client:%d", ret);
+		//goto err_register_disp_notif_failed;
+	}
+	else{
+		pr_err("gezi screen monitor register success.\n");
+	}
+#endif
+/* prize add by liuyong, modify for screen on charging 20230315 end */
 	kthread_run(charger_routine_thread, info, "charger_thread");
 
 	return 0;

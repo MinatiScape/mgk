@@ -44,3 +44,7 @@ enum {
 	DUAL_PROP_PR_SNK,
 	DUAL_PROP_PR_NONE,
 };
+
+/* prize liuyong, add for fac test, 20231024, start */
+int usb_set_role(int roal);
+/* prize liuyong, add for fac test, 20231024, end */

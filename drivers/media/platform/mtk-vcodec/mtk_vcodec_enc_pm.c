@@ -461,6 +461,12 @@ static void mtk_venc_hw_break(struct mtk_vcodec_dev *dev)
 			mtk_v4l2_err("0x13c: 0x%x, 0x484: 0x%x, 0x568: 0x%x",
 				readl(reg_base + 0x13c), readl(reg_base + 0x484),
 				readl(reg_base + 0x568));
+			mtk_v4l2_err("0x1164: 0x%x, 0x114C: 0x%x, 0x115C: 0x%x",
+				readl(reg_base + 0x1164), readl(reg_base + 0x114C),
+				readl(reg_base + 0x115C));
+			mtk_v4l2_err("0x24: 0x%x, 0x2C: 0x%x, 0x5C: 0x%x",
+				readl(reg_base + 0x24), readl(reg_base + 0x2C),
+				readl(reg_base + 0x5C));
 		}
 
 	}
@@ -532,6 +538,13 @@ static int mtk_venc_translation_fault_callback(
 	} else if (larb_id == 37) {
 		reg_base = dev->enc_reg_base[VENC_C2_SYS];
 		hw_id = MTK_VENC_CORE_2;
+	}
+
+	if (dev->tf_info != NULL) {
+		dev->tf_info->hw_id  = (__u32)hw_id;
+		dev->tf_info->port   = (__u32)port;
+		dev->tf_info->tf_mva = (__u64)mva;
+		dev->tf_info->has_tf = 1;
 	}
 
 	spin_lock_irqsave(&dev->enc_power_lock[hw_id], flags);

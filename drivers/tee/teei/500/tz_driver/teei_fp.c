@@ -15,6 +15,8 @@ static struct TEEC_Context context;
 static int context_initialized;
 struct TEEC_UUID uuid_fp = { 0x7778c03f, 0xc30c, 0x4dd0,
 { 0xa3, 0x19, 0xea, 0x29, 0x64, 0x3d, 0x4d, 0x4b } };
+
+EXPORT_SYMBOL_GPL(uuid_fp);
 int send_fp_command(void *buffer, unsigned long size)
 {
 	int ret = 0;
@@ -34,6 +36,8 @@ int send_fp_command(void *buffer, unsigned long size)
 		}
 		context_initialized = 1;
 	}
+	printk("isee microtrust debug fp uuid num is --->%x, %x ,%x ,%s\n", uuid_fp.timeLow,uuid_fp.timeMid,uuid_fp.timeHiAndVersion,uuid_fp.clockSeqAndNode);
+
 	ret = ut_pf_gp_transfer_user_data(&context, &uuid_fp, 1, buffer, size);
 	if (ret) {
 		IMSG_ERROR("Failed to transfer data,err: %x", ret);

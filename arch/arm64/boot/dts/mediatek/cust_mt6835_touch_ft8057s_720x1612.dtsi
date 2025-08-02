@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/*TOUCH begin*/
+&spi3 {
+
+	focaltech@0 {
+		status = "okay";
+		compatible = "tchip,ilitek","focaltech,fts";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		//vtouch-supply = <&mt6377_vtp>;
+		interrupt-parent = <&pio>;
+		interrupts = <4 IRQ_TYPE_EDGE_FALLING 4 0>;
+		touch,reset-gpio = <&pio 147 0x0>;
+		touch,irq-gpio = <&pio 4 0x0>;
+		focaltech,reset-gpio = <&pio 147 0x0>;
+		focaltech,irq-gpio = <&pio 4 0x0>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords = <0 0 720 1612>;
+
+		pinctrl-names = "spi_cs_suspend", "spi_cs_resume";
+		pinctrl-0 = <&spi_cs_int_suspend>;
+		pinctrl-1 = <&spi_cs_int_resume>;
+	};
+};
+&pio {
+	ctp_pins_default: eintdefault {
+	};
+	spi_cs_int_suspend: spi_cs_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO69__FUNC_GPIO69>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	spi_cs_int_resume: spi_cs_resume {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO69__FUNC_SPI3_CSB>;
+			input-enable;
+		};
+	};
+
+        ctp_spi_mode: tp_spi_mode {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO68__FUNC_SPI3_CLK>,
+                <PINMUX_GPIO69__FUNC_SPI3_CSB>,
+                <PINMUX_GPIO70__FUNC_SPI3_MO>,
+                <PINMUX_GPIO71__FUNC_SPI3_MI>;
+            drive-strength = <3>;   //0-7
+        };
+    };
+};
+/*TOUCH end*/

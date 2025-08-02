@@ -405,7 +405,7 @@ struct SCP_SENSOR_HUB_SET_CALI {
 
 struct SCP_SENSOR_HUB_SETPS_THRESHOLD {
 	enum CUST_ACTION action;
-	int32_t threshold[2];
+	int32_t threshold[3]; //prize liuyong modify for psensor 5cm cali value, 20231114
 };
 
 #define SCP_SENSOR_HUB_SHOW_REG    SCP_SENSOR_HUB_CUST

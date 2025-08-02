@@ -153,6 +153,7 @@ struct mtk_drm_private {
 	struct mtk_ddp_comp *ddp_comp[DDP_COMPONENT_ID_MAX];
 	const struct mtk_mmsys_driver_data *data;
 
+	struct mutex path_ctrl_lock;
 	struct {
 		struct drm_atomic_state *state;
 		struct work_struct work;
@@ -268,7 +269,7 @@ struct mtk_drm_disp_sec_cb {
 
 struct mtk_aod_scp_cb {
 	int (*send_ipi)(int value);
-	void (*module_backup)(struct mtk_ddp_config *cfg);
+	void (*module_backup)(struct drm_crtc *crtc, unsigned int ulps_wakeup_prd);
 };
 
 enum DISP_SEC_SIGNAL {
@@ -384,6 +385,7 @@ unchanged_compress_ratio_table[MAX_LAYER_RATIO_NUMBER];
 extern struct layer_compress_ratio_item
 fbt_compress_ratio_table[MAX_FRAME_RATIO_NUMBER];
 extern unsigned int ovl_win_size;
+extern int aod_scp_flag;
 
 int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);

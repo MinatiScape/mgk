@@ -463,39 +463,32 @@ static int mtk_gamma_12bit_set_lut(struct mtk_ddp_comp *comp,
 	/* TODO: use CPU to write register */
 	int ret = 0;
 	int id;
-	struct DISP_GAMMA_12BIT_LUT_T *gamma_lut, *old_lut;
 
 	DDPINFO("%s\n", __func__);
 
-	gamma_lut = kmalloc(sizeof(struct DISP_GAMMA_12BIT_LUT_T),
-		GFP_KERNEL);
-	if (gamma_lut == NULL) {
-		DDPPR_ERR("%s: no memory\n", __func__);
-		return -EFAULT;
-	}
-
 	if (user_gamma_lut == NULL) {
 		ret = -EFAULT;
-		kfree(gamma_lut);
+		DDPMSG("%s: user_gamma_lut is NULL\n", __func__);
 	} else {
-		memcpy(gamma_lut, user_gamma_lut,
-			sizeof(struct DISP_GAMMA_12BIT_LUT_T));
 		id = index_of_gamma(comp->id);
-
 		if (id >= 0 && id < DISP_GAMMA_TOTAL) {
 			mutex_lock(&g_gamma_global_lock);
-
-			old_lut = g_disp_gamma_12bit_lut;
-			g_disp_gamma_12bit_lut = gamma_lut;
-
-			DDPINFO("%s: Set module(%d) lut\n", __func__, comp->id);
+			memcpy(&g_disp_gamma_12bit_lut_db, user_gamma_lut,
+				sizeof(struct DISP_GAMMA_12BIT_LUT_T));
+			g_disp_gamma_12bit_lut = &g_disp_gamma_12bit_lut_db;
 			ret = mtk_gamma_write_12bit_lut_reg(comp, handle, 0);
+			if ((comp->mtk_crtc != NULL) && comp->mtk_crtc->is_dual_pipe
+				&& (id == DISP_GAMMA0)) {
+				struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+				struct drm_crtc *crtc = &mtk_crtc->base;
+				struct mtk_drm_private *priv = crtc->dev->dev_private;
+				struct mtk_ddp_comp *comp_gamma1 =
+							priv->ddp_comp[DDP_COMPONENT_GAMMA1];
 
+				ret = mtk_gamma_write_12bit_lut_reg(comp_gamma1, handle, 0);
+			}
+			DDPINFO("%s ret = %d", __func__, ret);
 			mutex_unlock(&g_gamma_global_lock);
-
-			if (old_lut != NULL)
-				kfree(old_lut);
-
 			//if (comp->mtk_crtc != NULL)
 			//	mtk_crtc_check_trigger(comp->mtk_crtc, false,
 			//		false);
@@ -567,7 +560,6 @@ int mtk_drm_12bit_gammalut_ioctl_impl(void)
 	struct drm_crtc *crtc = &mtk_crtc->base;
 
 	mutex_lock(&g_gamma_sram_lock);
-	g_disp_gamma_12bit_lut_db = ioctl_data;
 	ret = mtk_crtc_user_cmd(crtc, g_gamma_flip_comp[0], SET_12BIT_GAMMALUT,
 			(void *)(&ioctl_data));
 	mutex_unlock(&g_gamma_sram_lock);
@@ -658,7 +650,7 @@ static void mtk_gamma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 static void mtk_gamma_bypass(struct mtk_ddp_comp *comp, int bypass,
 	struct cmdq_pkt *handle)
 {
-	DDPINFO("%s\n", __func__);
+	DDPINFO("bypass = %d %s\n", bypass, __func__);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_GAMMA_CFG, bypass, 0x1);
 	g_gamma_relay_value = bypass;
@@ -791,11 +783,13 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 		DDPINFO("%s : gain = %d, backlight = %d",
 			__func__, g_sb_param.gain[gain_r], bl);
 	} else {
-		g_sb_param.bl = bl;
-		mtk_leds_brightness_set("lcd-backlight", bl, ess20_spect_param->ELVSSPN,
-					ess20_spect_param->flag);
-		DDPINFO("%s : backlight = %d, flag = %d, elvss = %d", __func__, bl,
-			ess20_spect_param->flag, ess20_spect_param->ELVSSPN);
+		if ((g_sb_param.bl != bl) || (ess20_spect_param->flag & (1 << SET_ELVSS_PN))) {
+			g_sb_param.bl = bl;
+			mtk_leds_brightness_set("lcd-backlight", bl, ess20_spect_param->ELVSSPN,
+						ess20_spect_param->flag);
+			DDPINFO("%s : backlight = %d, flag = %d, elvss = %d", __func__, bl,
+				ess20_spect_param->flag, ess20_spect_param->ELVSSPN);
+		}
 	}
 }
 
@@ -836,17 +830,6 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 		if (mtk_gamma_12bit_set_lut(comp, handle, config) < 0) {
 			DDPPR_ERR("%s: failed\n", __func__);
 			return -EFAULT;
-		}
-		if ((comp->mtk_crtc != NULL) && comp->mtk_crtc->is_dual_pipe) {
-			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-			struct drm_crtc *crtc = &mtk_crtc->base;
-			struct mtk_drm_private *priv = crtc->dev->dev_private;
-			struct mtk_ddp_comp *comp_gamma1 = priv->ddp_comp[DDP_COMPONENT_GAMMA1];
-
-			if (mtk_gamma_12bit_set_lut(comp_gamma1, handle, config) < 0) {
-				DDPPR_ERR("%s: comp_gamma1 failed\n", __func__);
-				return -EFAULT;
-			}
 		}
 
 		if (comp->mtk_crtc != NULL)
@@ -1225,11 +1208,11 @@ struct platform_driver mtk_disp_gamma_driver = {
 		},
 };
 
-int disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass)
+void disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret = 0;
+	int ret;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_GAMMA, &bypass);
+
 	DDPINFO("%s : ret = %d", __func__, ret);
-	return ret;
 }

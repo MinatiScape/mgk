@@ -161,7 +161,6 @@ enum {
 	EXPOSURE_CHANGE_2_to_1,
 	EXPOSURE_CHANGE_1_to_3,
 	EXPOSURE_CHANGE_1_to_2,
-	EXPOSURE_CHANGE_1_to_1,
 
 	MSTREAM_EXPOSURE_CHANGE = (1 << 4),
 	SUBSPL_MODE_CHANGE = (1 << 8),
@@ -216,6 +215,9 @@ void state_transition(struct mtk_camsys_ctrl_state *state_entry,
 void
 mtk_cam_set_sensor_switch(struct mtk_cam_request_stream_data *s_data,
 			  struct mtk_camsys_sensor_ctrl *sensor_ctrl);
+
+void mtk_cam_read_hdr_timestamp(struct mtk_cam_ctx *ctx,
+				struct mtk_cam_request_stream_data *stream_data);
 
 /*EXT ISP*/
 void mtk_cam_event_sensor_trigger(struct mtk_raw_pipeline *pipeline,

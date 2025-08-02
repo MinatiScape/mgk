@@ -29,7 +29,6 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 };
 
 static struct REGULATOR reg_instance;
-
 static enum IMGSENSOR_RETURN regulator_init(
 	void *pinstance,
 	struct IMGSENSOR_HW_DEVICE_COMMON *pcommon)
@@ -54,10 +53,17 @@ static enum IMGSENSOR_RETURN regulator_init(
 			if (ret < 0)
 				PK_DBG("NOTICE: %s, snprintf err, %d\n",
 					__func__, ret);
-
+		/* prize modify by chenwenhui for pmic 20240603 start */
+		#if 1
+			preg->pregulator[idx][type] = regulator_get(
+					&pcommon->pplatform_device->dev,
+					str_regulator_name);
+		#else
 			preg->pregulator[idx][type] = regulator_get_optional(
 					&pcommon->pplatform_device->dev,
 					str_regulator_name);
+		#endif
+		/* prize modify by chenwenhui for pmic 20240603 start */
 
 			if (preg->pregulator[idx][type] == NULL ||
 				IS_ERR(preg->pregulator[idx][type])) {

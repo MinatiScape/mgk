@@ -81,7 +81,7 @@ struct mtk_raw_pipeline;
 #define MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE		BIT(2)
 
 /* Apply sensor mode and the timing is 1 vsync before */
-#define MTK_CAM_REQ_SEAMLESS_IN_SEN_ZOOM			BIT(3)
+#define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1	BIT(3)
 
 #define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN		BIT(4)
 
@@ -108,11 +108,6 @@ struct mtk_raw_pipeline;
 /* QOS update */
 #define MTK_CAM_REQ_S_DATA_FLAG_QOS_FORCE_INC	BIT(14)
 #define MTK_CAM_REQ_S_DATA_FLAG_QOS_FORCE_DEC	BIT(15)
-
-#define MTK_CAM_REQ_SEAMLESS_RESET_CAMMUX			BIT(16)
-#define MTK_CAM_REQ_SEAMLESS_BOOST_DVFS			BIT(17)
-#define MTK_CAM_REQ_SEAMLESS_UPDATE_SENSOR_FMT		BIT(18)
-#define MTK_CAM_REQ_SEAMLESS_SKIP_SENSOR_WORKER		BIT(19)
 
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 
@@ -610,6 +605,7 @@ struct mtk_cam_device {
 	unsigned int streaming_ctx;
 	unsigned int streaming_pipe;
 	struct mtk_cam_ctx *ctxs;
+	atomic_t sv_only_ctx_existed;
 
 	/* request related */
 	struct list_head pending_job_list;

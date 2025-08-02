@@ -17,6 +17,10 @@
 #define VDEC_CHECK_ALIVE 1 /* vdec check alive have to enable DEC_DVFS first */
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+#define VDEC_VCP_BACKGROUND_IDLE    0
+#endif
+
 void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev);
 void mtk_unprepare_vdec_dvfs(struct mtk_vcodec_dev *dev);
 void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *dev);
@@ -34,6 +38,6 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx);
 void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in);
 void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in);
 void mtk_vdec_dvfs_sync_vsi_data(struct mtk_vcodec_ctx *ctx);
-void mtk_vdec_dvfs_update_dvfs_params(struct mtk_vcodec_ctx *ctx);
+void mtk_vdec_dvfs_update_active_state(struct mtk_vcodec_ctx *ctx);
 bool mtk_vdec_dvfs_is_pw_always_on(struct mtk_vcodec_dev *dev);
 #endif /* _MTK_VCODEC_DEC_PM_PLAT_H_ */

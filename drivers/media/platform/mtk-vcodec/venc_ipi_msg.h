@@ -473,6 +473,8 @@ struct venc_vcu_config {
 	struct mtk_color_desc color_desc;
 	struct mtk_venc_multi_ref multi_ref;
 	struct mtk_venc_vui_info vui_info;
+	__s32 cb_qp_offset;
+	__s32 cr_qp_offset;
 };
 
 /**
@@ -533,6 +535,7 @@ struct ring_input_list {
 	__s32 count;
 	__s32 reserved;
 	__s32 is_last_slice[VENC_MAX_FB_NUM];
+	__u32 flags[VENC_MAX_FB_NUM];
 };
 
 /*

@@ -23,12 +23,12 @@
 #define DEBUG_BUFFER_SIZE 10240
 #endif
 
-extern int disp_color_set_bypass(struct drm_crtc *crtc, int bypass);
-extern int disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass);
-extern int disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass);
-extern int disp_dither_set_bypass(struct drm_crtc *crtc, int bypass);
-extern int disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
-extern int disp_dither_set_color_detect(struct drm_crtc *crtc, int enable);
+extern void disp_color_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_dither_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
+extern void disp_dither_set_color_detect(struct drm_crtc *crtc, int enable);
 extern void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 	unsigned int gain[3], unsigned int bl, void *param);
 extern void mtk_aal_regdump(void);
@@ -58,8 +58,6 @@ enum mtk_pq_persist_property {
 
 int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
-
-int mtk_drm_set_disp_pq_unrelay(struct drm_crtc *crtc);
 
 extern int mtk_disp_hrt_bw_dbg(void);
 
@@ -107,7 +105,12 @@ enum mtk_drm_mml_dbg {
 	MMP_ADDON_DISCONNECT = 0x2000,
 	MMP_MML_SUBMIT = 0x4000,
 	MMP_MML_IDLE = 0x8000,
-	MMP_MML_REPAINT = 0x10000,
+};
+
+enum mtk_drm_cmd_option {
+	NONBLOCKING,
+	BLOCKING,
+	BLOCKING_NOWAIT,
 };
 
 #if IS_ENABLED(CONFIG_MTK_DISP_DEBUG)

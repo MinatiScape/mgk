@@ -13,9 +13,9 @@
 	KEEP_100_PERCENT = <(1)>;
 	CURR_MEASURE_20A = <(0)>;
 	UNIT_MULTIPLE = <(1)>;
-	R_FG_VALUE = <(2)>;
+	R_FG_VALUE = <(5)>;
 	/* R_sense resistance */
-	EMBEDDED_SEL = <(0)>;
+	EMBEDDED_SEL = <(1)>;
 	/* Configures whether using embedded battery or not */
 	PMIC_SHUTDOWN_CURRENT = <(20)>;
 	/* System shutdown current */
@@ -29,7 +29,9 @@
 	/* power on system iboot */
 	SHUTDOWN_GAUGE0_VOLTAGE = <(34000)>;
 	/* shutdown gauge 0% voltage */
-	TEMPERATURE_T0 = <(50)>;
+	/* pri BLE115S2-1 modify by suwenwei 20240402 start */
+	TEMPERATURE_T0 = <(55)>;
+	/* pri BLE115S2-1 modify by suwenwei 20240402 end */
 	/* Battery temperature T0 */
 	TEMPERATURE_T1 = <(25)>;
 	/* Battery temperature T1 */
@@ -37,7 +39,9 @@
 	/* Battery temperature T2 */
 	TEMPERATURE_T3 = <(0)>;
 	/* Battery temperature T3 */
-	TEMPERATURE_T4 = <(-6)>;
+	/* pri BLE115S2-1 modify by suwenwei 20240402 start */
+	TEMPERATURE_T4 = <(-10)>;
+	/* pri BLE115S2-1 modify by suwenwei 20240402 end */
 	/* Battery temperature T4 */
 	TEMPERATURE_T5 = <(-10)>;
 	/* Battery temperature T5 */

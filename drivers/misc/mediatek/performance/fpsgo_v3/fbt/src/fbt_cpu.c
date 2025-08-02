@@ -1167,7 +1167,6 @@ static int fbt_get_dep_list(struct render_info *thr)
 {
 	int pid;
 	int count = 0;
-	int ret_size;
 	struct fpsgo_loading *dep_new, *dep_only_old, *dep_old_need_reset;
 	int ret = 0;
 
@@ -1200,21 +1199,8 @@ static int fbt_get_dep_list(struct render_info *thr)
 		goto EXIT;
 	}
 
-	count = fpsgo_fbt2xgf_get_dep_list_num(pid, thr->buffer_id);
-	if (count <= 0) {
-		ret = 3;
-		goto EXIT;
-	}
-
-	count = clamp(count, 1, MAX_DEP_NUM);
-
-	ret_size = fpsgo_fbt2xgf_get_dep_list(pid, count,
+	count = fpsgo_fbt2xgf_get_dep_list(pid, MAX_DEP_NUM,
 		dep_new, thr->buffer_id);
-
-	if (ret_size == 0 || ret_size != count) {
-		ret = 4;
-		goto EXIT;
-	}
 
 	sort(dep_new, count, sizeof(struct fpsgo_loading), __cmp1, NULL);
 
@@ -2279,7 +2265,7 @@ void fbt_set_render_last_cb(struct render_info *thr, unsigned long long ts_ns)
 static int fbt_get_target_cluster(unsigned int blc_wt)
 {
 	int cluster = min_cap_cluster;
-	int i = max_cap_cluster;
+	int i = max_cap_cluster < cluster_num ? max_cap_cluster : cluster_num - 1;
 	int order = (max_cap_cluster > min_cap_cluster)?1:0;
 
 	while (i != min_cap_cluster) {
@@ -2288,9 +2274,9 @@ static int fbt_get_target_cluster(unsigned int blc_wt)
 			break;
 		}
 
-		if (order)
+		if (order && i > 0)
 			i--;
-		else
+		else if(i < cluster_num - 1)
 			i++;
 	}
 
@@ -3241,7 +3227,8 @@ static void fbt_do_boost(unsigned int blc_wt, int pid,
 		base_opp[cluster] = clus_opp[cluster];
 	}
 
-	if (cluster_num == 1 || pld[max_cap_cluster].max == -1
+	if (cluster_num == 1
+		|| (max_cap_cluster < cluster_num && pld[max_cap_cluster].max == -1)
 		|| bhr_opp == (nr_freq_cpu - 1))
 		fbt_set_hard_limit_locked(FPSGO_HARD_NONE, pld);
 	else {
@@ -3569,6 +3556,9 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		target_time = max(target_time, (long long)vsync_duration_us_144);
 
 	gcc_window_size = clamp(gcc_window_size, 0, 100);
+	if (!target_time)
+		return target_time;
+
 	s32_target_time = target_time;
 	window_cnt = target_fps * gcc_window_size;
 	do_div(window_cnt, 100);
@@ -3934,7 +3924,7 @@ static int fbt_get_separatecap(int pid, unsigned long long buffer_id,
 		return ret;
 
 	/* if not getting proper cl_loading, go back to default way */
-	if (cl_loading && clusnum > 1) {
+	if (cl_loading && clusnum > 1 && max_cap_cluster < clusnum) {
 		*aa_b = cl_loading[max_cap_cluster];
 		*aa_m = cl_loading[sec_cap_cluster];
 	} else {
@@ -4970,7 +4960,7 @@ static void fbt_frame_start(struct render_info *thr, unsigned long long ts)
 	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 		loading, "compute_loading");
 
-	if (thr->Q2Q_time != 0)
+	if (nsec_to_100usec(thr->Q2Q_time) != 0)
 		thr->avg_freq = loading / nsec_to_100usec(thr->Q2Q_time);
 
 	/* unreliable targetfps */
@@ -5021,7 +5011,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb_exp(int cid, unsigned long freq)
 	unsigned long spinlock_flag_freq, spinlock_flag_loading;
 	unsigned int curr_obv = 0U;
 	unsigned long long curr_cb_ts;
-	int new_ts;
+	unsigned long long new_ts;
 	int i, idx;
 	int opp;
 
@@ -5032,7 +5022,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb_exp(int cid, unsigned long freq)
 		return;
 
 	curr_cb_ts = fpsgo_get_time();
-	new_ts = nsec_to_100usec(curr_cb_ts);
+	new_ts = nsec_to_100usec_ull(curr_cb_ts);
 
 	for (opp = (nr_freq_cpu - 1); opp > 0; opp--) {
 		if (cpu_dvfs[cid].power[opp] >= freq)
@@ -5059,7 +5049,7 @@ void fpsgo_ctrl2fbt_cpufreq_cb_exp(int cid, unsigned long freq)
 		lastest_obv[idx] = last_obv;
 		lastest_idx = idx;
 
-		xgf_trace("[%s] idx=%d, prev_cb_ts=%d, lastest_ts=%d, last_obv=%u",
+		xgf_trace("[%s] idx=%d, prev_cb_ts=%llu, lastest_ts=%llu, last_obv=%u",
 			__func__, idx, prev_cb_ts[idx], lastest_ts[idx], lastest_obv[idx]);
 
 		if (lastest_obv_cl[idx] == NULL || lastest_is_cl_isolated[idx] == NULL)
@@ -5946,15 +5936,17 @@ out:
 
 static void fbt_xgff_set_min_cap(unsigned int min_cap)
 {
-	int tgt_opp, tgt_freq, fbt_min_cap;
+	int cluster, tgt_opp, tgt_freq, fbt_min_cap;
 
 	if (min_cap > 1024)
 		min_cap = 1024;
 
 	fbt_min_cap = (min_cap * 100 / 1024) + 1;
-	tgt_opp = fbt_get_opp_by_normalized_cap(fbt_min_cap, 0);
-	tgt_freq = cpu_dvfs[0].power[tgt_opp];
-	fbt_cpu_L_ceiling_min(tgt_freq);
+	cluster = fbt_get_target_cluster(fbt_min_cap);
+	tgt_opp = fbt_get_opp_by_normalized_cap(fbt_min_cap, cluster);
+	tgt_freq = cpu_dvfs[cluster].power[tgt_opp];
+	//fbt_cpu_L_ceiling_min(tgt_freq);
+	fbt_cpu_ceiling_min(cluster,tgt_freq);
 }
 
 struct fbt_thread_blc *fbt_xgff_list_blc_add(int pid,

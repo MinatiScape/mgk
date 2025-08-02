@@ -56,7 +56,7 @@ module_param(mml_path_mode, int, 0644);
 int mml_racing;
 module_param(mml_racing, int, 0644);
 
-int mml_racing_rsz;
+int mml_racing_rsz = 1;
 module_param(mml_racing_rsz, int, 0644);
 
 enum topology_scenario {
@@ -973,6 +973,11 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		info->dest[0].crop.r.width / info->dest[0].crop.r.height <
 		MML_IR_RSZ_MIN_RATIO) {
 		*reason = mml_query_rszratio;
+		goto decouple;
+	}
+
+	if (!MML_FMT_COMPRESS(info->src.format)) {
+		*reason = mml_query_format;
 		goto decouple;
 	}
 

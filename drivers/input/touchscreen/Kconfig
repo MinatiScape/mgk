@@ -1380,4 +1380,11 @@ config TOUCHSCREEN_MT6985_ALPHA_SUPPORT
          To compile this dirver for used touch IC.
          Set Y or M to select this feature for specific platform-mt6985,
          and set N to disable.
+		 
+config TOUCHSCREEN_FTS_8057S
+	tristate "Focaltech Touchscreen"
+	default m
+	help
+	Say Y here if you have Focaltech touch panel.
+	If unsure, say N.
 endif

@@ -462,93 +462,16 @@ void mtk_cam_seninf_get_vcinfo_test(struct seninf_ctx *ctx)
 	}
 }
 
-unsigned int get_code2dt(unsigned int code)
-{
-	switch (code) {
-	case MEDIA_BUS_FMT_SBGGR8_1X8:
-	case MEDIA_BUS_FMT_SGBRG8_1X8:
-	case MEDIA_BUS_FMT_SGRBG8_1X8:
-	case MEDIA_BUS_FMT_SRGGB8_1X8:
-		return 0x2a;
-
-	case MEDIA_BUS_FMT_SBGGR12_1X12:
-	case MEDIA_BUS_FMT_SGBRG12_1X12:
-	case MEDIA_BUS_FMT_SGRBG12_1X12:
-	case MEDIA_BUS_FMT_SRGGB12_1X12:
-		return 0x2c;
-
-	case MEDIA_BUS_FMT_SBGGR14_1X14:
-	case MEDIA_BUS_FMT_SGBRG14_1X14:
-	case MEDIA_BUS_FMT_SGRBG14_1X14:
-	case MEDIA_BUS_FMT_SRGGB14_1X14:
-		return 0x2d;
-
-	case MEDIA_BUS_FMT_SBGGR10_ALAW8_1X8:
-	case MEDIA_BUS_FMT_SGBRG10_ALAW8_1X8:
-	case MEDIA_BUS_FMT_SGRBG10_ALAW8_1X8:
-	case MEDIA_BUS_FMT_SRGGB10_ALAW8_1X8:
-	case MEDIA_BUS_FMT_SBGGR10_DPCM8_1X8:
-	case MEDIA_BUS_FMT_SGBRG10_DPCM8_1X8:
-	case MEDIA_BUS_FMT_SGRBG10_DPCM8_1X8:
-	case MEDIA_BUS_FMT_SRGGB10_DPCM8_1X8:
-	case MEDIA_BUS_FMT_SBGGR10_2X8_PADHI_BE:
-	case MEDIA_BUS_FMT_SBGGR10_2X8_PADHI_LE:
-	case MEDIA_BUS_FMT_SBGGR10_2X8_PADLO_BE:
-	case MEDIA_BUS_FMT_SBGGR10_2X8_PADLO_LE:
-	case MEDIA_BUS_FMT_SBGGR10_1X10:
-	case MEDIA_BUS_FMT_SGBRG10_1X10:
-	case MEDIA_BUS_FMT_SGRBG10_1X10:
-	case MEDIA_BUS_FMT_SRGGB10_1X10:
-	default:
-		return 0x2b;
-	}
-}
-
-static unsigned int dt_remap_to_mipi_dt(unsigned int dt_remap)
-{
-	switch (dt_remap) {
-	case MTK_MBUS_FRAME_DESC_REMAP_TO_RAW12:
-		return 0x2c;
-	case MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14:
-		return 0x2d;
-	case MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10:
-	default:
-		return 0x2b;
-	}
-}
-
 struct seninf_vc *mtk_cam_seninf_get_vc_by_pad(struct seninf_ctx *ctx, int idx)
 {
-	int i, ret;
+	int i;
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
-	struct v4l2_subdev_format raw_fmt;
-	unsigned int format_code, cur_dt, dt_remap, pad_dt;
-
-	memset(&raw_fmt, 0, sizeof(struct v4l2_subdev_format));
-	raw_fmt.pad = ctx->sensor_pad_idx;
-	raw_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-	ret = v4l2_subdev_call(ctx->sensor_sd, pad, get_fmt,
-				NULL, &raw_fmt);
-	// get current scenraio output bit(/data type)
-	format_code = to_std_fmt_code(raw_fmt.format.code);
-	cur_dt = get_code2dt(format_code);
-
-	// find vc via vc_dt or dt_remap
-	for (i = 0; i < vcinfo->cnt; i++) {
-		dt_remap = vcinfo->vc[i].dt_remap_to_type;
-		pad_dt = (dt_remap == MTK_MBUS_FRAME_DESC_REMAP_NONE)
-				? vcinfo->vc[i].dt : dt_remap_to_mipi_dt(dt_remap);
-		if (vcinfo->vc[i].out_pad == idx && pad_dt == cur_dt)
-			return &vcinfo->vc[i];
-	}
-
-	// if it can't find vc via vc_dt or dt_remap.
-	// default: find vc via pad
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		if (vcinfo->vc[i].out_pad == idx)
 			return &vcinfo->vc[i];
 	}
+
 	return NULL;
 }
 
@@ -557,10 +480,17 @@ int mtk_cam_seninf_get_pad_data_info(struct v4l2_subdev *sd,
 				struct mtk_seninf_pad_data_info *result)
 {
 	struct seninf_vc *pvc = NULL;
-	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct seninf_ctx *ctx;
 
 	if (!result)
 		return -1;
+
+	if (sd == NULL) {
+		pr_info("[%s] sd should not be Nullptr\n", __func__);
+		return -1;
+	}
+
+	ctx = container_of(sd, struct seninf_ctx, subdev);
 
 	memset(result, 0, sizeof(*result));
 	pvc = mtk_cam_seninf_get_vc_by_pad(ctx, pad);
@@ -585,8 +515,6 @@ static int get_mbus_format_by_dt(int dt)
 		return MEDIA_BUS_FMT_SBGGR10_1X10;
 	case 0x2c:
 		return MEDIA_BUS_FMT_SBGGR12_1X12;
-	case 0x2d:
-		return MEDIA_BUS_FMT_SBGGR14_1X14;
 	default:
 		/* default raw8 for other data types */
 		return MEDIA_BUS_FMT_SBGGR8_1X8;
@@ -936,13 +864,9 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			vc->feature = VC_RAW_SE_W_DATA;
 			vc->out_pad = PAD_SRC_RAW_W2;
 			break;
-		case VC_RAW_FLICKER_DATA:
-			vc->feature = VC_RAW_FLICKER_DATA;
-			vc->out_pad = PAD_SRC_FLICKER;
-			break;
 		default:
 			if (vc->dt == 0x2a || vc->dt == 0x2b ||
-			    vc->dt == 0x2c || vc->dt == 0x2d) {
+			    vc->dt == 0x2c) {
 				if (raw_cnt >= 3) {
 					dev_info(ctx->dev,
 						"too much raw data\n");
@@ -1161,8 +1085,15 @@ void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx)
 int mtk_cam_seninf_get_pixelmode(struct v4l2_subdev *sd,
 				 int pad_id, int *pixelMode)
 {
-	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct seninf_ctx *ctx;
 	struct seninf_vc *vc;
+
+	if (sd == NULL) {
+		pr_info("[%s] sd should not be Nullptr\n", __func__);
+		return -1;
+	}
+
+	ctx = container_of(sd, struct seninf_ctx, subdev);
 
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
 	if (!vc) {
@@ -1178,8 +1109,15 @@ int mtk_cam_seninf_get_pixelmode(struct v4l2_subdev *sd,
 int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 				 int pad_id, int pixelMode)
 {
-	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct seninf_ctx *ctx;
 	struct seninf_vc *vc;
+
+	if (sd == NULL) {
+		pr_info("[%s] sd should not be Nullptr\n", __func__);
+		return -1;
+	}
+
+	ctx = container_of(sd, struct seninf_ctx, subdev);
 
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
 	if (!vc) {
@@ -1459,9 +1397,16 @@ static int _mtk_cam_seninf_reset_cammux(struct seninf_ctx *ctx, int pad_id)
 int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int tag_id,
 			      bool from_set_camtg)
 {
-	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct seninf_ctx *ctx;
 	struct seninf_vc *vc;
 	int set;
+
+	if (sd == NULL) {
+		pr_info("[%s] sd should not be Nullptr\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx = container_of(sd, struct seninf_ctx, subdev);
 
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT)
 		return -EINVAL;
@@ -1495,12 +1440,20 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
 {
 	/* seninf todo: tag order */
 	/* 0: first exposure 1: second exposure 2: last exposure */
-	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
-	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+	struct seninf_ctx *ctx;
+	struct seninf_vcinfo *vcinfo;
 	struct seninf_vc *vc;
 	int ret = 0;
 	int i = 0;
 	int exposure_num = 0;
+
+	if (sd == NULL) {
+		pr_info("[%s] sd should not be Nullptr\n", __func__);
+		return -1;
+	}
+
+	ctx = container_of(sd, struct seninf_ctx, subdev);
+	vcinfo = &ctx->vcinfo;
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
@@ -2028,18 +1981,32 @@ void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx,
 
 int stream_sensor(struct seninf_ctx *ctx, int enable)
 {
-	int ret;
+	int ret, skip;
 
-	ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, enable);
-	if (ret) {
-		dev_info(ctx->dev, "%s sensor stream-%s fail,ret(%d)\n",
-			 __func__,
-			 enable ? "on" : "off",
-			 ret);
-	} else {
+	mutex_lock(&ctx->delay_s_sensor_mutex);
+
+	skip = enable && (!ctx->delay_s_sensor_flag);
+	ctx->delay_s_sensor_flag = 0;
+
+	if (!skip) {
+		ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, enable);
+		mutex_unlock(&ctx->delay_s_sensor_mutex);
+		if (ret) {
+			dev_info(ctx->dev, "%s sensor stream-%s fail,ret(%d)\n",
+				 __func__,
+				 enable ? "on" : "off",
+				 ret);
+		} else {
 #ifdef SENINF_UT_DUMP
-		g_seninf_ops->_debug(ctx);
+			g_seninf_ops->_debug(ctx);
 #endif
+		}
+	} else {
+		mutex_unlock(&ctx->delay_s_sensor_mutex);
+		ret = 0;
+		dev_info(ctx->dev, "%s skip sensor stream-%s\n",
+			 __func__,
+			 enable ? "on" : "off");
 	}
 
 	return ret;
@@ -2055,6 +2022,10 @@ void notify_fsync_with_kthread_and_s_stream(struct seninf_ctx *ctx,
 		stream_sensor(ctx, 0);
 		return;
 	}
+
+	mutex_lock(&ctx->delay_s_sensor_mutex);
+	ctx->delay_s_sensor_flag = 1;
+	mutex_unlock(&ctx->delay_s_sensor_mutex);
 
 	seninf_work = kmalloc(sizeof(struct mtk_seninf_work),
 				GFP_ATOMIC);
@@ -2121,8 +2092,15 @@ bool has_multiple_expo_mode(struct seninf_ctx *ctx)
 
 bool is_fsync_listening_on_pd(struct v4l2_subdev *sd)
 {
-	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct seninf_ctx *ctx;
 	bool ret = false;
+
+	if (sd == NULL) {
+		pr_info("[%s] sd should not be Nullptr\n", __func__);
+		return false;
+	}
+
+	ctx = container_of(sd, struct seninf_ctx, subdev);
 
 	if (ctx->fsync_vsync_src_pad >= PAD_SRC_PDAF0 &&
 	    ctx->fsync_vsync_src_pad <= PAD_SRC_PDAF6)

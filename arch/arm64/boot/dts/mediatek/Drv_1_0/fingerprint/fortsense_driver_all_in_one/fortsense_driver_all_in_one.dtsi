@@ -1,0 +1,160 @@
+#include "../../drv_common.h"
+
+#if PRI_PLATFORM_MT6789
+#include "./mt6789/custom.h"
+#endif
+
+#if PRI_PLATFORM_MT6835
+#include "./mt6835/custom.h"
+#endif
+
+
+/* Fingerprint GPIO standardization */
+&SPI_INDEX{
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fortsense_fp: fortsense_fp{
+		compatible = "prize,fortsense_fp";
+		reg = <FP_FORTSENCE_REG>;
+		spi-max-frequency = <1000000>;
+		/*other infromation*/
+		/*spi-cpha;*/    /*set cpha=1, optional*/
+		/*spi-cpol;*/    /*set cpol=1, optional*/
+		/*spi-cs-high;*/    /*set cs active level=1, optional*/
+		/*spi-3wire;*/    /*set no-tx or no-rx, optional*/
+		/*spi-lsb-first;*/    /*set lsb-first transfer, optional*/
+		fingerprint,touch-int-gpio = <&pio FP_IRQ_PIN 0>;
+		status = "okay";
+	};
+};
+
+&odm {
+   fpc_fortsence: fpc_fortsence {
+    compatible = "mediatek,fpc_fortsence";
+	interrupt-parent = <&pio>;
+	interrupts = <FP_IRQ_PIN IRQ_TYPE_EDGE_FALLING FP_IRQ_PIN 0>;
+#if PRI_FP_VDD_PMIC
+	VFP-supply = <&FP_VDD_REG>;
+#endif
+	pinctrl-names = "default",
+		"fpc_eint_as_int",
+		"fpc_pins_rst_high", "fpc_pins_rst_low",
+		"fpc_pins_pwr_high", "fpc_pins_pwr_low",
+		"fpc_mode_as_cs", "fpc_mode_as_ck",
+		"fpc_mode_as_mi", "fpc_mode_as_mo",
+		"fpc_miso_pull_up", "fpc_miso_pull_down",
+		"fpc_mosi_pull_up", "fpc_mosi_pull_down",
+		"fpc_pins_cs_high", "fpc_pins_cs_low";
+	pinctrl-0 = <&fpc_pins_default>;
+	pinctrl-1 = <&fpc_pins_eint_as_int>;
+	pinctrl-2 = <&fpc_pins_rst_high>;
+	pinctrl-3 = <&fpc_pins_rst_low>;
+	pinctrl-4 = <&fpc_pins_pwr_high>;
+	pinctrl-5 = <&fpc_pins_pwr_low>;
+	pinctrl-6 = <&fpc_mode_as_cs>;
+	pinctrl-7 = <&fpc_mode_as_ck>;
+	pinctrl-8= <&fpc_mode_as_mi>;
+	pinctrl-9 = <&fpc_mode_as_mo>;
+	pinctrl-10 = <&fpc_miso_pull_up>;
+	pinctrl-11 = <&fpc_miso_pull_down>;
+	pinctrl-12 = <&fpc_mosi_pull_up>;
+	pinctrl-13 = <&fpc_mosi_pull_down>;
+ 	pinctrl-14 = <&fpc_pins_cs_high>;
+	pinctrl-15 = <&fpc_pins_cs_low>;	
+	status = "okay";
+	};
+};
+
+&pio {
+	fpc_pins_default: fs_fpcdefault {
+	};
+
+	fpc_pins_eint_as_int: fs_fpceint@0 {
+		pins_cmd_dat {
+			pinmux = <FP_INT_AS_GPIO>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+	fpc_pins_rst_high: fs_fpcrsthigh {
+		pins_cmd_dat {
+			pinmux = <FP_RST_AS_GPIO>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fpc_pins_rst_low: fs_fpcrstlow {
+		pins_cmd_dat {
+			pinmux = <FP_RST_AS_GPIO>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fpc_pins_pwr_high: fs_fpcpwrhigh {
+	};
+	fpc_pins_pwr_low: fs_fpcpwrlow {
+	};	
+	fpc_mode_as_cs: fs_fpccs {
+		pins_cmd_dat {
+			pinmux = <FP_CS_AS_SPI>;
+			bias-pull-up = <00>;
+			 drive-strength = <7>;
+		};
+	};
+	fpc_mode_as_ck: fs_fpcck {
+		pins_cmd_dat {
+			pinmux = <FP_CK_AS_SPI>;
+			bias-pull-up = <00>;
+			 drive-strength = <7>;
+		};
+	};
+	fpc_mode_as_mi: fs_fpcmi {
+		pins_cmd_dat {
+			pinmux = <FP_MI_AS_SPI>;
+			bias-pull-up = <00>;
+			 drive-strength = <7>;
+		};
+	};
+	fpc_mode_as_mo: fs_fpcmo {
+		pins_cmd_dat {
+			pinmux = <FP_MO_AS_SPI>;
+			bias-pull-down = <00>;
+			 drive-strength = <7>;
+		};
+	};
+	fpc_miso_pull_up: fs_fpcmisoup {
+		pins_cmd_dat {
+			pinmux = <FP_MI_AS_GPIO>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fpc_miso_pull_down: fs_fpcmisolow {
+		pins_cmd_dat {
+			pinmux = <FP_MI_AS_GPIO>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fpc_mosi_pull_up: fs_fpcmosiup {
+		pins_cmd_dat {
+			pinmux = <FP_MO_AS_GPIO>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fpc_mosi_pull_down: fs_fpcmosilow {
+		pins_cmd_dat {
+			pinmux = <FP_MO_AS_GPIO>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+ 	fpc_pins_cs_high: fs_fpccshigh {//chipone
+ 	};
+ 	fpc_pins_cs_low: fs_fpccslow {//chipone
+ 	};
+};
+
+
+/* Fingerprint GPIO end */

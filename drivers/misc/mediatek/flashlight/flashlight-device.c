@@ -82,10 +82,26 @@ const struct flashlight_device_id flashlight_id[] = {
 	/* {TYPE, CT, PART, "NAME", CHANNEL, DECOUPLE} */
 	{0, 0, 0, "flashlights-lm3642", 0, 0},
 };
+#elif defined(CONFIG_MTK_FLASHLIGHT_AW3641E_GPIO)
+const struct flashlight_device_id flashlight_id[] = {
+	{0, 0, 0, "flashlights-aw3641e-gpio", 0, 1},
+};
+#elif defined(CONFIG_MTK_FLASHLIGHT_AW36518)
+const struct flashlight_device_id flashlight_id[] = {
+	{0, 0, 0, "flashlights-aw36518", 0, 1},
+};
+#elif defined(CONFIG_MTK_FLASHLIGHT_AW36515)
+const struct flashlight_device_id flashlight_id[] = {
+	{0, 1, 0, "flashlights-aw36515", 0, 1},
+};
+#elif defined(CONFIG_MTK_FLASHLIGHT_OCP81373)
+const struct flashlight_device_id flashlight_id[] = {
+	{0, 0, 0, "flashlights-ocp81373", 0, 1},
+};
 #else
 const struct flashlight_device_id flashlight_id[] = {
 	/* {TYPE, CT, PART, "NAME", CHANNEL, DECOUPLE} */
-	{0, 0, 0, "flashlights-none", -1, 0},
+	{0, 1, 0, "flashlights-none", -1, 0},
 	{0, 1, 0, "flashlights-none", -1, 0},
 	{1, 0, 0, "flashlights-none", -1, 0},
 	{1, 1, 0, "flashlights-none", -1, 0},

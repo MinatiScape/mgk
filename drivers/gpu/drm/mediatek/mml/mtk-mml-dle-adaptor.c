@@ -120,14 +120,34 @@ static struct mml_task *task_get_idle(struct mml_frame_config *cfg)
 	return task;
 }
 
+static void frame_config_queue_destroy(struct kref *kref)
+{
+	struct mml_frame_config *cfg = container_of(kref, struct mml_frame_config, ref);
+	struct mml_dle_ctx *ctx = cfg->ctx;
+
+	queue_work(ctx->wq_destroy, &cfg->work_destroy);
+}
+
+static void task_move_to_destroy(struct kref *kref)
+{
+	struct mml_task *task = container_of(kref,
+		struct mml_task, ref);
+
+	if (task->config)
+		kref_put(&task->config->ref, frame_config_queue_destroy);
+
+	mml_core_destroy_task(task);
+}
+
 static void frame_config_destroy(struct mml_frame_config *cfg)
 {
 	struct mml_task *task, *tmp;
 
-	mml_msg("[dle]%s frame config %p", __func__, cfg);
+	mml_msg("[dle]%s frame config %p task cnt (%u %u %hhu)",
+		__func__, cfg, cfg->await_task_cnt, cfg->run_task_cnt, cfg->done_task_cnt);
 
 	if (WARN_ON(!list_empty(&cfg->await_tasks))) {
-		mml_err("[dle]still waiting tasks in wq during destroy config");
+		mml_err("[dle]still waiting tasks in wq during destroy config %p", cfg);
 		list_for_each_entry_safe(task, tmp, &cfg->await_tasks, entry) {
 			/* unable to handling error,
 			 * print error but not destroy
@@ -139,7 +159,7 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 	}
 
 	if (WARN_ON(!list_empty(&cfg->tasks))) {
-		mml_err("[dle]still busy tasks during destroy config");
+		mml_err("[dle]still busy tasks during destroy config %p", cfg);
 		list_for_each_entry_safe(task, tmp, &cfg->tasks, entry) {
 			/* unable to handling error,
 			 * print error but not destroy
@@ -148,6 +168,11 @@ static void frame_config_destroy(struct mml_frame_config *cfg)
 			list_del_init(&task->entry);
 			task->config = NULL;
 		}
+	}
+
+	list_for_each_entry_safe(task, tmp, &cfg->done_tasks, entry) {
+		list_del_init(&task->entry);
+		kref_put(&task->ref, task_move_to_destroy);
 	}
 
 	mml_core_deinit_config(cfg);
@@ -162,14 +187,6 @@ static void frame_config_destroy_work(struct work_struct *work)
 		struct mml_frame_config, work_destroy);
 
 	frame_config_destroy(cfg);
-}
-
-static void frame_config_queue_destroy(struct kref *kref)
-{
-	struct mml_frame_config *cfg = container_of(kref, struct mml_frame_config, ref);
-	struct mml_dle_ctx *ctx = cfg->ctx;
-
-	queue_work(ctx->wq_destroy, &cfg->work_destroy);
 }
 
 static struct mml_frame_config *frame_config_create(
@@ -258,17 +275,6 @@ static void task_move_to_running(struct mml_task *task)
 		task->config->await_task_cnt,
 		task->config->run_task_cnt,
 		task->config->done_task_cnt);
-}
-
-static void task_move_to_destroy(struct kref *kref)
-{
-	struct mml_task *task = container_of(kref,
-		struct mml_task, ref);
-
-	if (task->config)
-		kref_put(&task->config->ref, frame_config_queue_destroy);
-
-	mml_core_destroy_task(task);
 }
 
 static void task_move_to_idle(struct mml_task *task)
@@ -617,7 +623,7 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 
 	/* copy per-frame info */
 	task->ctx = ctx;
-	result = frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src, "mml_rdma");
+	result = frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src, "dle_mml_rdma");
 	if (result) {
 		mml_err("[dle]%s get dma buf fail", __func__);
 		goto err_buf_exit;
@@ -627,7 +633,7 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 	for (i = 0; i < submit->buffer.dest_cnt; i++) {
 		result = frame_buf_to_task_buf(&task->buf.dest[i],
 				      &submit->buffer.dest[i],
-				      "mml_wrot");
+				      "dle_mml_wrot");
 		if (result) {
 			mml_err("[dle]%s get dma buf fail", __func__);
 			goto err_buf_exit;
@@ -884,17 +890,23 @@ static void dle_ctx_release(struct mml_dle_ctx *ctx)
 {
 	struct mml_frame_config *cfg, *tmp;
 	u32 i, j;
+	struct list_head local_list;
 
 	mml_msg("[dle]%s on ctx %p", __func__, ctx);
 
+	INIT_LIST_HEAD(&local_list);
+
+	/* clone list_head first to aviod circular lock */
 	mutex_lock(&ctx->config_mutex);
-	list_for_each_entry_safe_reverse(cfg, tmp, &ctx->configs, entry) {
+	list_splice_tail_init(&ctx->configs, &local_list);
+	mutex_unlock(&ctx->config_mutex);
+
+	list_for_each_entry_safe_reverse(cfg, tmp, &local_list, entry) {
 		/* check and remove configs/tasks in this context */
 		list_del_init(&cfg->entry);
 		frame_config_destroy(cfg);
 	}
 
-	mutex_unlock(&ctx->config_mutex);
 	destroy_workqueue(ctx->wq_destroy);
 	destroy_workqueue(ctx->wq_config);
 	kthread_destroy_worker(ctx->kt_done);
