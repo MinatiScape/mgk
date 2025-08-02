@@ -24,6 +24,10 @@
 #undef pr_fmt
 #define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
 
+//prize add by wangfei for backlight not close when first set backlight 20230116 start
+#define DEF_HW_BRINGHTNESS   1
+//prize add by wangfei for backlight not close when first set backlight 20230116 end
+
 static int mtk_set_brightness(struct led_classdev *led_cdev,
 					 enum led_brightness brightness);
 
@@ -396,6 +400,9 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	int ret = 0;
 	const char *state;
 	struct mt_leds_desp_info *nleds_info;
+	/* prize liuyong, modify boot up backlight, 20231205, start*/
+	unsigned int default_brightness;
+	/* prize liuyong, modify boot up backlight, 20231205, end*/
 
 	ret = fwnode_property_read_string(fwnode, "label", &(mdev->conf.cdev.name));
 	if (ret)
@@ -450,7 +457,15 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 		else
 			mdev->conf.cdev.brightness = 0;
 	} else {
-		mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness * 40 / 100;
+		/* prize liuyong, modify boot up backlight, 20231205, start*/
+		ret = fwnode_property_read_u32(fwnode,
+			"default-brightness", &default_brightness);
+		if (!ret) {
+			pr_info("use  default-brightness: %d value", default_brightness);
+			mdev->conf.cdev.brightness = default_brightness;
+		} else
+			mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness * 40 / 100;
+		/* prize liuyong, modify boot up backlight, 20231205, end*/
 	}
 
 	strscpy(mdev->desp.name, mdev->conf.cdev.name,
@@ -544,7 +559,9 @@ int mt_leds_classdev_register(struct device *parent,
 
 	mtk_set_hw_brightness(led_dat,
 		brightness_maptolevel(&led_dat->conf, led_dat->last_brightness), 0, 0);
-
+	//prize add by wangfei for backlight not close when first set backlight 20230116 start
+	led_dat->hw_brightness = DEF_HW_BRINGHTNESS;
+	//prize add by wangfei for backlight not close when first set backlight 20230116 end
 	pr_info("%s devm_led_classdev_register end! ", led_dat->conf.cdev.name);
 
 	return ret;

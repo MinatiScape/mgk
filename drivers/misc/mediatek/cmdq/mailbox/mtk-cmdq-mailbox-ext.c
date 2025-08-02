@@ -172,6 +172,11 @@ int cmdq_hw_trace_set(const char *val, const struct kernel_param *kp)
 	if (ret)
 		return ret;
 
+	if (!cmdq_util_check_hw_trace_work(bit.hwid)) {
+		cmdq_err("hw trace disable");
+		return -EINVAL;
+	}
+
 	cmdq_hw_trace = bit.enable ? 1 : 0;
 
 	if (bit.dump && (bit.hwid & 0x1))
@@ -569,6 +574,14 @@ static void cmdq_task_connect_buffer(struct cmdq_task *task,
 	task_base = (u64 *)(buf->va_base + CMDQ_CMD_BUFFER_SIZE -
 		task->pkt->avail_buf_size - CMDQ_INST_SIZE);
 	inst = *task_base;
+
+	if (!next_task) {
+		*task_base = (u64)CMDQ_JUMP_BY_OFFSET << 32 | 0x00000001;
+		cmdq_log("%s connect to null change last inst %#018llx to %#018llx connect 0x%p -> NULL",
+			__func__, inst, *task_base, task->pkt);
+		return;
+	}
+
 	*task_base = (u64)CMDQ_JUMP_BY_PA << 32 |
 		CMDQ_REG_SHIFT_ADDR(next_task->pa_base);
 
@@ -1289,6 +1302,7 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		cmdq->thread[i].irq_time = 0;
 		cmdq->thread[i].irq_task = 0;
+		cmdq->thread[i].user_cb_cost = 0;
 	}
 
 	for_each_clear_bit(bit, &irq_status, fls(CMDQ_IRQ_MASK)) {
@@ -1325,23 +1339,23 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 			struct cmdq_thread *thread = &cmdq->thread[i];
 
 			cmdq_util_err(
-				" hwid:%hu thread:%u:%d %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u",
-				cmdq->hwid, thd_cnt, i, thread->lock_time,
-				thread->irq_time, thread->irq_task,
-				(thread + 1)->lock_time,
-				(thread + 1)->irq_time, (thread + 1)->irq_task,
-				(thread + 2)->lock_time,
-				(thread + 2)->irq_time, (thread + 2)->irq_task,
-				(thread + 3)->lock_time,
-				(thread + 3)->irq_time, (thread + 3)->irq_task,
-				(thread + 4)->lock_time,
-				(thread + 4)->irq_time, (thread + 4)->irq_task,
-				(thread + 5)->lock_time,
-				(thread + 5)->irq_time, (thread + 5)->irq_task,
-				(thread + 6)->lock_time,
-				(thread + 6)->irq_time, (thread + 6)->irq_task,
-				(thread + 7)->lock_time,
-				(thread + 7)->irq_time, (thread + 7)->irq_task);
+				" hwid:%hu thread:%u:%d %llu:%llu:%u:%llu %llu:%llu:%u:%llu %llu:%llu:%u:%llu %llu:%llu:%u:%llu %llu:%llu:%u:%llu %llu:%llu:%u:%llu %llu:%llu:%u:%llu %llu:%llu:%u:%llu",
+				cmdq->hwid, thd_cnt, i, thread->lock_time, thread->irq_time,
+				thread->irq_task, thread->user_cb_cost,
+				(thread + 1)->lock_time, (thread + 1)->irq_time,
+				(thread + 1)->irq_task, (thread + 1)->user_cb_cost,
+				(thread + 2)->lock_time, (thread + 2)->irq_time,
+				(thread + 2)->irq_task, (thread + 2)->user_cb_cost,
+				(thread + 3)->lock_time, (thread + 3)->irq_time,
+				(thread + 3)->irq_task, (thread + 3)->user_cb_cost,
+				(thread + 4)->lock_time, (thread + 4)->irq_time,
+				(thread + 4)->irq_task, (thread + 4)->user_cb_cost,
+				(thread + 5)->lock_time, (thread + 5)->irq_time,
+				(thread + 5)->irq_task, (thread + 5)->user_cb_cost,
+				(thread + 6)->lock_time, (thread + 6)->irq_time,
+				(thread + 6)->irq_task, (thread + 6)->user_cb_cost,
+				(thread + 7)->lock_time, (thread + 7)->irq_time,
+				(thread + 7)->irq_task, (thread + 7)->user_cb_cost);
 		}
 	}
 
@@ -1860,7 +1874,7 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 {
 	struct cmdq_thread *thread = (struct cmdq_thread *)chan->con_priv;
 	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
-	struct cmdq_task *task, *tmp;
+	struct cmdq_task *task, *tmp, *next_task, *prev_task;
 	unsigned long flags;
 	dma_addr_t pa_curr;
 	bool curr_task = false;
@@ -1912,6 +1926,12 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 			/* task during error handling, skip */
 			spin_unlock_irqrestore(&thread->chan->lock, flags);
 			return;
+		}
+
+		if (!curr_task) {
+			next_task = last_task ? NULL : list_next_entry(task, list_entry);
+			prev_task = list_prev_entry(task, list_entry);
+			cmdq_task_connect_buffer(prev_task, next_task);
 		}
 
 		cmdq_task_exec_done(task, curr_task ? -ECONNABORTED : 0);

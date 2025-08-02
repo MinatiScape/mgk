@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 
-obj-$(CONFIG_DRM_PANEL_BOE_NT37705_DPHY_CMD_FHD) += panel-boe-nt37705-dphy-cmd-fhd.o
-obj-$(CONFIG_DRM_PANEL_BOE_BF130_DPHY_CMD_HD) += panel-boe-bf130-dphy-cmd-hd.o
 obj-$(CONFIG_DRM_PANEL_ABT_Y030XX067A) += panel-abt-y030xx067a.o
 obj-$(CONFIG_DRM_PANEL_ARM_VERSATILE) += panel-arm-versatile.o
 obj-$(CONFIG_DRM_PANEL_ASUS_Z00T_TM5P5_NT35596) += panel-asus-z00t-tm5p5-n35596.o
@@ -86,6 +84,7 @@ obj-$(CONFIG_DRM_PANEL_TIANMA_R66451_CMD_120HZ_WA) += panel-tianma-r66451-cmd-12
 obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672E_VDO_120HZ_HFP) += panel-tianma-nt36672e-vdo-120hz-hfp.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO) += panel-alpha-jdi-nt36672e-cphy-vdo.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO_NO_DSC) += panel-alpha-jdi-nt36672e-cphy-vdo-no-dsc.o
+obj-$(CONFIG_DRM_PANEL_SKYWORTH_FT8057_HDP_DSI_VOD_90HZ_AW3703D) +=panel-skyworth-ft8057S-vdo.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO_WO_DSC_60HZ) += panel-alpha-jdi-nt36672e-cphy-vdo-wo-dsc-60hz.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO_WO_DSC_HFP) += panel-alpha-jdi-nt36672e-cphy-vdo-wo-dsc-hfp.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_120HZ) += panel-alpha-jdi-nt36672e-vdo-120hz.o
@@ -103,12 +102,20 @@ obj-$(CONFIG_DRM_PANEL_NT37801_CMD_120HZ) += panel-nt37801-cmd-120hz.o
 obj-$(CONFIG_DRM_PANEL_L12A_42_02_0A_DSC_CMD) += panel-l12a-42-02-0a-dsc-cmd.o
 obj-$(CONFIG_DRM_PANEL_NT37801_CMD_FHD) += panel-nt37801-cmd-fhd.o
 obj-$(CONFIG_DRM_PANEL_NT37801_CMD_SPR) += panel-nt37801-cmd-spr.o
+obj-$(CONFIG_DRM_PANEL_HUIKE_ILI9883_DSI_VDO) += panel-huike-ili9883-vdo.o
+obj-$(CONFIG_DRM_PANEL_HUAYIN_FT8057S_DSI_VDO) += panel-huayin-ft8057s-vdo.o
+obj-$(CONFIG_DRM_PANEL_HUASHI_ILI9883_DSI_VDO) += panel-huashi-ili9883-vdo.o
 ifneq ($(wildcard $(srctree)/$(src)/k6985v1_64),)
 obj-$(CONFIG_DRM_TD2204_WQHD_AMB678ZY01_S6E3HC3_CMD) += k6985v1_64/td2204-wqhd-amb678zy01-s6e3hc3-cmd.o
 endif
 ifneq ($(wildcard $(srctree)/$(src)/k6985v1_64_alpha),)
 obj-$(CONFIG_DRM_PANEL_NT37705_ALPHA_CMD) += k6985v1_64_alpha/panel-nt37705-alpha-cmd.o
 obj-$(CONFIG_DRM_PANEL_NT37705_ALPHA_CMD_SPR) += k6985v1_64_alpha/panel-nt37705-alpha-cmd-spr.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/k6985v1_64_flip_alpha),)
+obj-$(CONFIG_DRM_PANEL_BOE_NT37705_DPHY_CMD_FHD) += k6985v1_64_flip_alpha/panel-boe-nt37705-dphy-cmd-fhd.o
+obj-$(CONFIG_DRM_PANEL_BOE_BF130_DPHY_CMD_HD) += k6985v1_64_flip_alpha/panel-boe-bf130-dphy-cmd-hd.o
+obj-$(CONFIG_DRM_PANEL_SAMSUNG_AMF680CM01_CMD_FHD) += k6985v1_64_flip_alpha/panel-samsung-amf680cm01-cmd-fhd.o
 endif
 
 mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \

@@ -325,10 +325,17 @@ static int transceiver_translate(struct transceiver_device *dev,
 			dst->word[0] = src->value[0];
 			dst->word[1] = src->value[1];
 			dst->word[2] = src->value[2];
-			break;
+			break;	
+		case SENSOR_TYPE_PROXIMITY:
+			dst->word[0] = src->value[0];
+			//#ifdef NT_EDIT
+			//modify to fix AERO-161
+			dst->word[1] = src->value[1];
+			//#endif /* NT_EDIT */
+		break;	
+		
 		case SENSOR_TYPE_LIGHT:
 		case SENSOR_TYPE_PRESSURE:
-		case SENSOR_TYPE_PROXIMITY:
 		case SENSOR_TYPE_STEP_COUNTER:
 			dst->word[0] = src->value[0];
 			break;

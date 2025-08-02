@@ -65,6 +65,13 @@
 #define AFDRV_OV8825AF "OV8825AF"
 #define AFDRV_WV511AAF "WV511AAF"
 #define AFDRV_DW9718TAF "DW9718TAF"
+// prize add by linchong 20231017 start
+#define AFDRV_AW8601CSR "AW8601CSR"
+#define AFDRV_GT9772AF "GT9772AF"
+// prize add by linchong 20231017 end
+// prize add by chenwenhui 20240603 start
+#define AFDRV_PD9402AAF "PD9402AAF"
+// prize add by chenwenhui 20240603 end
 
 #define CONVERT_CCU_TIMESTAMP 0x1000
 

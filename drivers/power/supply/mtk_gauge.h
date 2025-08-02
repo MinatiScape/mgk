@@ -107,6 +107,7 @@ enum gauge_property {
 	GAUGE_PROP_BAT_EOC,
 	GAUGE_PROP_REGMAP_TYPE,
 	GAUGE_PROP_CIC2,
+	GAUGE_PROP_VBUS_VOLTAGE,
 	GAUGE_PROP_MAX,
 };
 
@@ -257,6 +258,7 @@ struct mtk_gauge {
 	struct iio_channel *chan_bif;
 	struct iio_channel *chan_ptim_bat_voltage;
 	struct iio_channel *chan_ptim_r;
+	struct iio_channel *chan_vbus_voltage;
 
 	struct mtk_gauge_sysfs_field_info *attr;
 	struct zcv_data zcv_info;

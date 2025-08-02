@@ -637,6 +637,8 @@ static int f2fs_unlink(struct inode *dir, struct dentry *dentry)
 		goto fail;
 	}
 	f2fs_delete_entry(de, page, dir, inode);
+	f2fs_unlock_op(sbi);
+
 #ifdef CONFIG_UNICODE
 	/* VFS negative dentries are incompatible with Encoding and
 	 * Case-insensitiveness. Eventually we'll want avoid
@@ -647,8 +649,6 @@ static int f2fs_unlink(struct inode *dir, struct dentry *dentry)
 	if (IS_CASEFOLDED(dir))
 		d_invalidate(dentry);
 #endif
-	f2fs_unlock_op(sbi);
-
 	if (IS_DIRSYNC(dir))
 		f2fs_sync_fs(sbi->sb, 1);
 fail:
@@ -852,8 +852,8 @@ out:
 }
 
 static int __f2fs_tmpfile(struct user_namespace *mnt_userns, struct inode *dir,
-					struct dentry *dentry, umode_t mode,
-					struct inode **whiteout)
+			  struct dentry *dentry, umode_t mode, bool is_whiteout,
+			  struct inode **new_inode)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(dir);
 	struct inode *inode;
@@ -867,7 +867,7 @@ static int __f2fs_tmpfile(struct user_namespace *mnt_userns, struct inode *dir,
 	if (IS_ERR(inode))
 		return PTR_ERR(inode);
 
-	if (whiteout) {
+	if (is_whiteout) {
 		init_special_inode(inode, inode->i_mode, WHITEOUT_DEV);
 		inode->i_op = &f2fs_special_inode_operations;
 	} else {
@@ -892,20 +892,24 @@ static int __f2fs_tmpfile(struct user_namespace *mnt_userns, struct inode *dir,
 	f2fs_add_orphan_inode(inode);
 	f2fs_alloc_nid_done(sbi, inode->i_ino);
 
-	if (whiteout) {
+	if (is_whiteout) {
 		f2fs_i_links_write(inode, false);
 
 		spin_lock(&inode->i_lock);
 		inode->i_state |= I_LINKABLE;
 		spin_unlock(&inode->i_lock);
-
-		*whiteout = inode;
 	} else {
-		d_tmpfile(dentry, inode);
+		if (dentry)
+			d_tmpfile(dentry, inode);
+		else
+			f2fs_i_links_write(inode, false);
 	}
 	/* link_count was changed by d_tmpfile as well. */
 	f2fs_unlock_op(sbi);
 	unlock_new_inode(inode);
+
+	if (new_inode)
+		*new_inode = inode;
 
 	f2fs_balance_fs(sbi, true);
 	return 0;
@@ -927,7 +931,7 @@ static int f2fs_tmpfile(struct user_namespace *mnt_userns, struct inode *dir,
 	if (!f2fs_is_checkpoint_ready(sbi))
 		return -ENOSPC;
 
-	return __f2fs_tmpfile(mnt_userns, dir, dentry, mode, NULL);
+	return __f2fs_tmpfile(mnt_userns, dir, dentry, mode, false, NULL);
 }
 
 static int f2fs_create_whiteout(struct user_namespace *mnt_userns,
@@ -937,7 +941,13 @@ static int f2fs_create_whiteout(struct user_namespace *mnt_userns,
 		return -EIO;
 
 	return __f2fs_tmpfile(mnt_userns, dir, NULL,
-				S_IFCHR | WHITEOUT_MODE, whiteout);
+				S_IFCHR | WHITEOUT_MODE, true, whiteout);
+}
+
+int f2fs_get_tmpfile(struct user_namespace *mnt_userns, struct inode *dir,
+		     struct inode **new_inode)
+{
+	return __f2fs_tmpfile(mnt_userns, dir, NULL, S_IFREG, false, new_inode);
 }
 
 static int f2fs_rename(struct user_namespace *mnt_userns, struct inode *old_dir,
@@ -1096,7 +1106,7 @@ static int f2fs_rename(struct user_namespace *mnt_userns, struct inode *old_dir,
 	}
 
 	if (old_dir_entry) {
-		if (old_dir != new_dir && !whiteout)
+		if (old_dir != new_dir)
 			f2fs_set_link(old_inode, old_dir_entry,
 						old_dir_page, new_dir);
 		else

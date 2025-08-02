@@ -88,7 +88,7 @@ struct mtk_nanohub_device {
 	int32_t gyro_config_data[12];
 	int32_t mag_config_data[9];
 	int32_t light_config_data[1];
-	int32_t proximity_config_data[2];
+	int32_t proximity_config_data[3]; //prize liuyong modify for psensor 5cm cali value, 20231114
 	int32_t pressure_config_data[2];
 	int32_t sar_config_data[4];
 	int32_t ois_config_data[2];
@@ -1345,8 +1345,14 @@ int mtk_nanohub_set_cmd_to_hub(uint8_t sensor_id,
 			    = *((int32_t *) data + 0);
 			req.set_cust_req.setPSThreshold.threshold[1]
 			    = *((int32_t *) data + 1);
+			/* prize liuyong modify for psensor 5cm cali value, 20231114 start*/
+			req.set_cust_req.setPSThreshold.threshold[2]
+			    = *((int32_t *) data + 2);
+			/* prize liuyong modify for psensor 5cm cali value, 20231114 start*/
 			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
 			    custData) + sizeof(req.set_cust_req.setPSThreshold);
+			pr_err("%s hf_manager %d %d %d\n", __func__, req.set_cust_req.setPSThreshold.threshold[0],
+				req.set_cust_req.setPSThreshold.threshold[1], req.set_cust_req.setPSThreshold.threshold[2]);
 			break;
 		case CUST_ACTION_GET_RAW_DATA:
 			req.set_cust_req.getRawData.action =
@@ -2331,6 +2337,9 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 			event.action = data->flush_action;
 			event.word[0] = data->data[0];
 			event.word[1] = data->data[1];
+			/* prize liuyong modify for psensor 5cm cali value, 20231114 start*/
+			event.word[2] = data->data[2];
+			/* prize liuyong modify for psensor 5cm cali value, 20231114 end*/
 			break;
 		case ID_LIGHT:
 			event.timestamp = data->time_stamp;

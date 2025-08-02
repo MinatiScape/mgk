@@ -39,6 +39,15 @@
 #include "../audio_scp/mtk-scp-audio-pcm.h"
 #endif
 
+//drv add by pengzhipeng 20230105 start
+#if IS_ENABLED(CONFIG_SND_SOC_FS1599)
+#include "../../codecs/fs1599/fsm_public.h"
+#endif
+#if IS_ENABLED(CONFIG_SND_SOC_AW8839X)
+#include "../../codecs/aw883xx/aw883xx.h"
+#endif
+//drv add by pengzhipeng 20230105 start
+
 #define MTK_SPK_NAME "Speaker Codec"
 #define MTK_SPK_REF_NAME "Speaker Codec Ref"
 
@@ -46,6 +55,12 @@ static unsigned int mtk_spk_type;
 static int mtk_spk_i2s_out = MTK_SPK_I2S_3, mtk_spk_i2s_in = MTK_SPK_I2S_0;
 static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 	[MTK_SPK_NOT_SMARTPA] = {
+//drv add by pengzhipeng 20230105 start
+#if IS_ENABLED(CONFIG_SND_SOC_FS1599)
+		.i2c_probe = exfsm_i2c_probe,
+		.i2c_remove = exfsm_i2c_remove,
+#endif
+//drv add by pengzhipeng 20230105 end
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
@@ -72,6 +87,16 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_name = "tfa98xx",
 	},
 #endif /* CONFIG_SND_SOC_TFA9874 */
+//prize add by lipengpeng 20220607 start
+#if IS_ENABLED(CONFIG_SND_SOC_AW8839X)
+        [MTK_SPK_AWINIC_AW883XX] = {
+                //.i2c_probe = aw883xx_i2c_probe,
+                //.i2c_remove = aw883xx_i2c_remove,
+                .codec_dai_name = "aw883xx-aif-6-34",
+                .codec_name = "aw883xx_smartpa.6-0034",
+        },
+#endif 
+//prize add by lipengpeng 20220607 end
 };
 
 static int mtk_spk_i2c_probe(struct i2c_client *client,
@@ -123,7 +148,13 @@ EXPORT_SYMBOL(mtk_spk_get_type);
 
 void mtk_spk_set_type(int spk_type)
 {
-	mtk_spk_type = spk_type;
+//prize add by pengzhipeng 20230105 start
+#if IS_ENABLED(CONFIG_SND_SOC_FS1599)
+	mtk_spk_type = spk_type;//prize add by pengzhipeng 20230105
+#else
+	mtk_spk_type = 5;//prize add by lipengpeng 20220607
+#endif
+//prize add by pengzhipeng 20230105 end
 }
 EXPORT_SYMBOL(mtk_spk_set_type);
 
@@ -166,6 +197,13 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 	int i2s_in_dai_link_idx = -1;
 	const int i2s_num = 2;
 	unsigned int i2s_set[2];
+//prize add by pengzhipeng 20230105 start
+#if IS_ENABLED(CONFIG_SND_SOC_FS1599) || IS_ENABLED(CONFIG_SND_SOC_AW87XXX)
+	mtk_spk_type = MTK_SPK_NOT_SMARTPA;
+#else
+    mtk_spk_type=5;//prize add by lipengpeng 20220607
+#endif
+//prize add by pengzhipeng 20230105 end
 
 	if (mtk_spk_type == MTK_SPK_NOT_SMARTPA)
 		goto BYPASS_UPDATE;

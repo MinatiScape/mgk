@@ -30,6 +30,13 @@ endif
 obj-$(CONFIG_MTK_LENS)    += mainaf.o
 
 mainaf-y  += main_lens.o
+# prize add by linchong 20231017 start
+mainaf-y  += common/aw8601csr/AW8601CSR.o
+mainaf-y  += common/gt9772af/GT9772AF.o
+# prize add by linchong 20231017 end
+# prize add by chenwenhui 20240603 start
+mainaf-y  += common/pd9402aaf/PD9402AAF.o
+# prize add by chenwenhui 20240603 end
 mainaf-y  += common/fp5510e2af/FP5510E2AF.o
 mainaf-y  += common/bu6424af/BU6424AF.o
 mainaf-y  += common/bu6429af/BU6429AF.o

@@ -589,14 +589,14 @@ static int pt_is_low(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 		if (pt_strict)
 			is_low = 2;
 	}
-
-	return is_low;
+    return 0;/*prize modify by zhuzhengjiang for low power,flashlight not effect*/
+	//return is_low;
 }
 
 static int pt_trigger(void)
 {
 	struct flashlight_dev *fdev;
-
+    return 0;/*prize remove by zhuzhengjiang for flashlight can open when low power*/
 	mutex_lock(&fl_mutex);
 	list_for_each_entry(fdev, &flashlight_list, node) {
 		if (!fdev->ops)

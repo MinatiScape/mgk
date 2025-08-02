@@ -36,6 +36,7 @@
 
 #include "xhci.h"
 #include "xhci-mtk.h"
+#include "quirks.h"
 
 /* ip_pw_ctrl0 register */
 #define CTRL0_IP_SW_RST	BIT(0)
@@ -876,6 +877,8 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 	pm_runtime_put_autosuspend(dev);
 	pm_runtime_forbid(dev);
 
+	xhci_mtk_trace_init(dev);
+
 	return 0;
 
 dealloc_usb3_hcd:
@@ -930,9 +933,12 @@ static int xhci_mtk_remove(struct platform_device *pdev)
 	xhci_mtk_ldos_disable(mtk);
 	xhci_mtk_procfs_exit(mtk);
 
+
 	pm_runtime_disable(dev);
 	pm_runtime_put_noidle(dev);
 	pm_runtime_set_suspended(dev);
+
+	xhci_mtk_trace_deinit(dev);
 
 	return 0;
 }

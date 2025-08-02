@@ -338,6 +338,29 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 			ret = clk_set_parent(
 				pclk->clk_sel[idx_tg],
 				pclk->clk_sel[idx_freq]);
+        #if IS_ENABLED(CONFIG_CAMERA_GC0301) //prize add by zhuzhengjiang for fake vga camera start
+		if(pmclk->TG ==1) {//main:2 main2:3 sub2:1
+			if (pclk->clk_sel[idx_tg+2] != NULL) {
+				if (clk_prepare_enable(pclk->clk_sel[idx_tg+2]))
+					PK_DBG("[CAMERA SENSOR] failed tg=%d\n",
+						pmclk->TG+2);
+				else
+					atomic_inc(&pclk->enable_cnt[idx_tg+2]);
+			}
+			if (pclk->clk_sel[idx_freq] != NULL) {
+				if (clk_prepare_enable(pclk->clk_sel[idx_freq]))
+					PK_DBG("[CAMERA SENSOR] failed freq idx= %d\n",
+						i);
+				else
+					atomic_inc(&pclk->enable_cnt[idx_freq]);
+			}
+			if ((pclk->clk_sel[idx_tg+2] != NULL) &&
+				(pclk->clk_sel[idx_freq] != NULL))
+				ret = clk_set_parent(
+					pclk->clk_sel[idx_tg+2],
+					pclk->clk_sel[idx_freq]);
+		}
+	    #endif
 	} else {
 		if (pclk->clk_sel[idx_freq] != NULL) {
 			if (atomic_read(&pclk->enable_cnt[idx_freq]) > 0) {
@@ -352,6 +375,23 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 				atomic_dec(&pclk->enable_cnt[idx_tg]);
 			}
 		}
+		#if IS_ENABLED(CONFIG_CAMERA_GC0301) //prize add by zhuzhengjiang for fake vga camera start
+		if(pmclk->TG ==1){//main:2 main2:3 sub2:1
+			if (pclk->clk_sel[idx_freq] != NULL) {
+				if (atomic_read(&pclk->enable_cnt[idx_freq]) > 0) {
+					clk_disable_unprepare(pclk->clk_sel[idx_freq]);
+					atomic_dec(&pclk->enable_cnt[idx_freq]);
+				}
+			}
+
+			if (pclk->clk_sel[idx_tg+2] != NULL) {
+				if (atomic_read(&pclk->enable_cnt[idx_tg+2]) > 0) {
+					clk_disable_unprepare(pclk->clk_sel[idx_tg+2]);
+					atomic_dec(&pclk->enable_cnt[idx_tg+2]);
+				}
+			}
+		}
+	    #endif
 
 		if (IS_MT6893(pclk->g_platform_id) || IS_MT6885(pclk->g_platform_id)) {
 			/* Workaround for timestamp: TG1 always ON */

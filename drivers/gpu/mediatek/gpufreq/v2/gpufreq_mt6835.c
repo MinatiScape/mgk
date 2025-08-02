@@ -938,21 +938,6 @@ void __gpufreq_dump_infra_status(void)
 	GPUFREQ_LOGI("[Clk] MFG_PLL: %d, MFG_SEL: 0x%x",
 		g_gpu.cur_freq, readl(TOPCK_CLK_CFG_20) & MFG_PLL_SEL_MASK);
 
-	/* 0x13FBF000 */
-	if (MFG_TOP_CFG_BASE) {
-		/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
-		writel((readl(MFG_QCHANNEL_CON) | BIT(0)), MFG_QCHANNEL_CON);
-		/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
-		writel((readl(MFG_DEBUG_SEL) | GENMASK(1, 0)), MFG_DEBUG_SEL);
-
-		/* MFG_DEBUG_SEL */
-		/* MFG_DEBUG_TOP */
-		GPUFREQ_LOGI("%-7s (0x%x): 0x%08x, (0x%x): 0x%08x",
-			"[MFG]",
-			(0x13FBF170), readl(MFG_DEBUG_SEL),
-			(0x13FBF178), readl(MFG_DEBUG_TOP));
-	}
-
 	/* 0x1021C000, 0x1021E000 */
 	if (NTH_EMICFG_BASE && STH_EMICFG_BASE) {
 		/* NTH_MFG_EMI1_GALS_SLV_DBG */
@@ -3562,15 +3547,21 @@ static void __gpufreq_init_opp_table(void)
 	/* init GPU OPP table */
 	/* init OPP segment range */
 	segment_id = g_gpu.segment_id;
-	/* Next-C+(23E+) GPU FREQ: 962MHz */
-	if (segment_id == MT6835M_SEGMENT)
-		g_gpu.segment_upbound = 10;
-	/* Next-C++(23E++) GPU FREQ: 1100MHz */
-	else if (segment_id == MT6835T_SEGMENT)
-		g_gpu.segment_upbound = 0;
-	/* Next-C(23E) GPU FREQ: 570MHz */
-	else if (segment_id == MT6835_SEGMENT)
+	/* 23E GPU FREQ: 570MHz */
+	if (segment_id == MT6835_23_SEGMENT)
 		g_gpu.segment_upbound = 37;
+	/* 23E+ GPU FREQ: 962MHz */
+	else if (segment_id == MT6835_23P_SEGMENT)
+		g_gpu.segment_upbound = 10;
+	/* 24E GPU FREQ: 1072MHz */
+	else if (segment_id == MT6835_24_SEGMENT)
+		g_gpu.segment_upbound = 2;
+	/* 24E+ GPU FREQ: 1100MHz */
+	else if (segment_id == MT6835_24P_SEGMENT)
+		g_gpu.segment_upbound = 0;
+	/* 24E++ GPU FREQ: 1100MHz */
+	else if (segment_id == MT6835_24PP_SEGMENT)
+		g_gpu.segment_upbound = 0;
 	else
 		g_gpu.segment_upbound = 10;
 	g_gpu.segment_lowbound = NUM_GPU_SIGNED_OPP - 1;
@@ -3668,13 +3659,19 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 
 	switch (efuse_id) {
 	case 0x1:
-		segment_id = MT6835_SEGMENT;
+		segment_id = MT6835_23_SEGMENT;
 		break;
 	case 0x2:
-		segment_id = MT6835M_SEGMENT;
+		segment_id = MT6835_23P_SEGMENT;
 		break;
-	case 0x3:
-		segment_id = MT6835T_SEGMENT;
+	case 0x82:
+		segment_id = MT6835_24_SEGMENT;
+		break;
+	case 0x83:
+		segment_id = MT6835_24P_SEGMENT;
+		break;
+	case 0x84:
+		segment_id = MT6835_24PP_SEGMENT;
 		break;
 	default:
 		segment_id = ENG_SEGMENT;

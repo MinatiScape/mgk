@@ -2379,9 +2379,12 @@ static int boot_zcv_get(struct mtk_gauge *gauge_dev,
 	fgauge_set_info(
 		gauge_dev, GAUGE_PROP_MONITER_PLCHG_STATUS, 0);
 
+	/* prize liuyong, modify off charing bat plugout status, 20240110 start */
 	if (zcvinfo->pl_charging_status == 1)
-		fg_is_charger_exist = 1;
+		//fg_is_charger_exist = 1;
+		fg_is_charger_exist = 0;
 	else
+	/* prize liuyong, modify off charing bat plugout status, 20230110 end */
 		fg_is_charger_exist = 0;
 
 	_hw_ocv = _hw_ocv_63_pon;
@@ -2508,7 +2511,10 @@ static int initial_set(struct mtk_gauge *gauge,
 	gauge->hw_status.pl_charger_status = is_charger_exist;
 
 	if (is_charger_exist == 1) {
-		gauge->hw_status.is_bat_plugout = 1;
+		/* prize liuyong, modify for charger exist boot up, 20240110, start*/
+		//gauge->hw_status.is_bat_plugout = 1;
+		gauge->hw_status.is_bat_plugout = 0;
+		/* prize liuyong, modify for charger exist boot up, 20210110, end*/
 		fgauge_set_info(gauge, GAUGE_PROP_2SEC_REBOOT, 0);
 	} else {
 		if (bat_flag == 0)
@@ -2745,6 +2751,23 @@ static int ptim_resist_get(struct mtk_gauge *gauge,
 	if (!IS_ERR(gauge->chan_ptim_r)) {
 		ret = iio_read_channel_processed(
 			gauge->chan_ptim_r, val);
+		if (ret < 0)
+			bm_err("[%s]read fail,ret=%d\n", __func__, ret);
+	} else {
+		bm_err("[%s]chan error\n", __func__);
+		ret = -EOPNOTSUPP;
+	}
+
+	return ret;
+}
+
+static int vbus_voltage_adc_get(struct mtk_gauge *gauge,
+	struct mtk_gauge_sysfs_field_info *attr, int *val)
+{
+	int ret;
+
+	if (!IS_ERR(gauge->chan_vbus_voltage)) {
+		ret = iio_read_channel_processed(gauge->chan_vbus_voltage, val);
 		if (ret < 0)
 			bm_err("[%s]read fail,ret=%d\n", __func__, ret);
 	} else {
@@ -3331,7 +3354,9 @@ static struct mtk_gauge_sysfs_field_info mt6377_sysfs_field_tbl[] = {
 	GAUGE_SYSFS_FIELD_RO(
 		regmap_type_get, GAUGE_PROP_REGMAP_TYPE),
 	GAUGE_SYSFS_FIELD_RO(battery_cic2_get,
-		GAUGE_PROP_CIC2)
+		GAUGE_PROP_CIC2),
+	GAUGE_SYSFS_FIELD_RO(vbus_voltage_adc_get,
+		GAUGE_PROP_VBUS_VOLTAGE)
 };
 
 static struct attribute *
@@ -3801,6 +3826,14 @@ static int mt6377_gauge_probe(struct platform_device *pdev)
 	if (IS_ERR(gauge->chan_ptim_r)) {
 		ret = PTR_ERR(gauge->chan_ptim_r);
 		bm_err("chan_ptim_r auxadc get fail, ret=%d\n",
+			ret);
+	}
+
+	gauge->chan_vbus_voltage = devm_iio_channel_get(
+		&pdev->dev, "pmic_vbus_voltage");
+	if (IS_ERR(gauge->chan_vbus_voltage)) {
+		ret = PTR_ERR(gauge->chan_vbus_voltage);
+		bm_err("chan_vbus_voltage auxadc get fail, ret=%d\n",
 			ret);
 	}
 

@@ -182,6 +182,26 @@ static int get_pmic_vbus(struct mtk_charger *info, int *vchr)
 	static struct power_supply *chg_psy;
 	int ret;
 
+/* prize add by liuyong 20230302 add charger vol interface start */
+#if 1
+	static struct power_supply *batt_psy;
+
+	if(batt_psy == NULL)
+		batt_psy = power_supply_get_by_name("battery");
+
+	if (IS_ERR_OR_NULL(batt_psy)) {
+		pr_err("%s Couldn't get batt_psy\n", __func__);
+	} else {
+		ret = power_supply_get_property(batt_psy,
+			POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT, &prop);
+		*vchr = prop.intval;
+		chr_err("vbus:%s:%d\n", __func__, *vchr);
+
+		return ret;
+	}
+#endif
+/* prize add by liuyong 20230302 add charger vol interface end */
+
 	if (chg_psy == NULL)
 		chg_psy = power_supply_get_by_name("mtk_charger_type");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
@@ -219,15 +239,22 @@ int get_vbus(struct mtk_charger *info)
 int get_ibat(struct mtk_charger *info)
 {
 	int ret = 0;
-	int ibat = 0;
+	//int ibat = 0;
 
 	if (info == NULL)
 		return -EINVAL;
-	ret = charger_dev_get_ibat(info->chg1_dev, &ibat);
-	if (ret < 0)
-		chr_err("%s: get ibat failed: %d\n", __func__, ret);
+	//ret = charger_dev_get_ibat(info->chg1_dev, &ibat);
+	ret = get_battery_current(info);
+	if (ret < 0){
+		//chr_err("%s: get ibat failed: %d\n", __func__, ret);
+	}
+	
+	return ret;
+	
+/*
 
 	return ibat / 1000;
+*/	
 }
 
 int get_ibus(struct mtk_charger *info)

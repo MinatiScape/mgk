@@ -4,6 +4,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -53,6 +54,8 @@ static struct ccci_md_regulator md_reg_table[] = {
 	{ NULL, "md-vsram", 825000, 825000},
 	{ NULL, "md-vdigrf", 700000, 700000},
 };
+
+static unsigned int ap_plat_info;
 
 static struct ccci_plat_val md_cd_plat_val_ptr;
 
@@ -598,6 +601,23 @@ static int md1_disable_sequencer_setting(struct ccci_modem *md)
 
 	return 0;
 }
+static void ccci_md_emi_req_mask(unsigned int mask)
+{
+	struct arm_smccc_res res;
+
+	memset(&res, 0, sizeof(res));
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
+		MD_SPM_EMI_REQ_MASK, mask, 0, 0, 0, 0, &res);
+	if (res.a0) {
+		if (mask)
+			CCCI_ERROR_LOG(-1, TAG,
+				"ccci md emi req mask fail (0x%lx)\n", res.a0);
+		else
+			CCCI_ERROR_LOG(-1, TAG,
+				"ccci md emi req unmask fail (0x%lx)\n", res.a0);
+	}
+
+}
 
 static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 {
@@ -696,6 +716,11 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 	CCCI_BOOTUP_LOG(0, TAG,
 		"Call end kicker_pbm_by_md(0,false)\n");
 #endif
+	/* only used for 6835 */
+	if (ap_plat_info == 6835) {
+		CCCI_NORMAL_LOG(0, TAG, "[POWER OFF] ccci_md_emi_req_mask start\n");
+		ccci_md_emi_req_mask(0);
+	}
 
 	return ret;
 }
@@ -750,6 +775,7 @@ static int md_start_platform(struct ccci_modem *md)
 	if (ret != 0) {
 		/* BROM */
 		CCCI_ERROR_LOG(0, TAG, "BROM Failed\n");
+		md_cd_dump_debug_register(md, true);
 	}
 
 	md_cd_power_off(md, 0);
@@ -1064,7 +1090,11 @@ static int md_cd_power_on(struct ccci_modem *md)
 		if (ret)
 			return ret;
 	}
-
+	/* only used for 6835 */
+	if (ap_plat_info == 6835) {
+		CCCI_NORMAL_LOG(0, TAG, "[POWER ON] ccci_md_emi_req_mask start\n");
+		ccci_md_emi_req_mask(1);
+	}
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	flight_mode_set_by_atf(md, false);
 	CCCI_BOOTUP_LOG(0, TAG,
@@ -1103,12 +1133,39 @@ static int md_cd_power_on(struct ccci_modem *md)
 	return 0;
 }
 
+static void check_pass_before_go(void)
+{
+	unsigned int wait_cnt = 0, md_chk_val;
+	struct ccci_modem *md = ccci_get_modem();
+
+	if(md->hw_info->md_bus_check_addr == NULL)
+		return;
+
+	do {
+		md_chk_val = ccci_read32(md->hw_info->md_bus_check_addr, 0);
+		if ((md_chk_val & 0xFF) == 0xFF)
+			break;
+		udelay(100);
+		wait_cnt++;
+		if (wait_cnt == 10000)
+			CCCI_NORMAL_LOG(0, TAG, "[POWER ON]check MD boot slave wait ...\n");
+		else if (wait_cnt == 100000) {
+			CCCI_ERROR_LOG(0, TAG, "[POWER ON]check MD boot slave wait 10s timeout\n");
+			break;
+		}
+	} while (1);
+
+	CCCI_BOOTUP_LOG(0, TAG, "[POWER ON]check MD boot slave end\n");
+	CCCI_NORMAL_LOG(0, TAG, "[POWER ON]check MD boot slave end\n");
+}
+
 static int md_cd_let_md_go(struct ccci_modem *md)
 {
 	struct arm_smccc_res res;
 
 	if (MD_IN_DEBUG(md))
 		return -1;
+	check_pass_before_go();
 	CCCI_BOOTUP_LOG(0, TAG, "[POWER ON]set MD boot slave\n");
 	CCCI_NORMAL_LOG(0, TAG, "[POWER ON]set MD boot slave\n");
 
@@ -1151,6 +1208,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 #ifdef USING_PM_RUNTIME
 	int retval = 0;
 #endif
+	struct device_node *child_node = NULL;
 
 	if (dev_ptr->dev.of_node == NULL) {
 		CCCI_ERROR_LOG(0, TAG, "modem OF node NULL\n");
@@ -1161,6 +1219,12 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		CCCI_ERROR_LOG(0, TAG, "modem is not enabled, exit\n");
 		return -1;
 	}
+	ret = of_property_read_u32(dev_ptr->dev.of_node,
+		"mediatek,ap-plat-info", &ap_plat_info);
+	if (ret < 0)
+		CCCI_ERROR_LOG(0, TAG, "%s: get DTS: ap-plat-info fail\n", __func__);
+	else
+		CCCI_NORMAL_LOG(0, TAG, "ap_plat_info: %u\n", ap_plat_info);
 
 	memset(dev_cfg, 0, sizeof(struct ccci_dev_cfg));
 
@@ -1215,6 +1279,16 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:md_gen fail\n",
 			__func__);
 		return -1;
+	}
+
+	child_node = of_get_child_by_name(dev_ptr->dev.of_node, "md-bus-addr");
+	if (child_node) {
+		hw_info->md_bus_check_addr = of_iomap(child_node, 0);
+		if (hw_info->md_bus_check_addr == NULL)
+			CCCI_ERROR_LOG(0, TAG, "%s:iomap md-bus-check-addr fail\n", __func__);
+	} else {
+		hw_info->md_bus_check_addr = NULL;
+		CCCI_ERROR_LOG(0, TAG, "%s:get child_dev md-bus-addr fail\n", __func__);
 	}
 
 	/* "mediatek,md-sub-version" = 0 or can't find this properity

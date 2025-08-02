@@ -103,6 +103,12 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	{1, AFDRV_BU64748AF, bu64748af_SetI2Cclient_Main2,
 	 bu64748af_Ioctl_Main2, bu64748af_Release_Main2,
 	 bu64748af_GetFileName_Main2, NULL},
+{1, AFDRV_DW9800WAF, DW9800WAF_SetI2Cclient_Main2, DW9800WAF_Ioctl_Main2, DW9800WAF_Release_Main2, DW9800WAF_GetFileName_Main2, NULL},
+
+//drv added by wangmd ,support dw9714,20240816,start
+	{1, AFDRV_DW9714AF, DW9714AF_SetI2Cclient, DW9714AF_Ioctl,
+	 DW9714AF_Release, DW9714AF_GetFileName, NULL},
+//drv added by wangmd ,support dw9714,20240816,end
 };
 
 static struct stAF_DrvList *g_pstAF_CurDrv;

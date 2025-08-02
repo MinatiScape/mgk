@@ -787,7 +787,13 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 
 	dma_port = node->desc.dma_port;
 	pipe_id = node->uid.pipe_id;
+
 	req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
+	if (!req_stream_data) {
+		dev_info(dev, "%s get s_data failed\n", __func__);
+		return;
+	}
+
 	frame_param = &req_stream_data->frame_params;
 	raw_pipline = mtk_cam_dev_get_raw_pipeline(cam, pipe_id);
 	if (raw_pipline) {
@@ -900,9 +906,6 @@ static const struct v4l2_file_operations mtk_cam_v4l2_fops = {
 	.release = vb2_fop_release,
 	.poll = vb2_fop_poll,
 	.mmap = vb2_fop_mmap,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl32 = v4l2_compat_ioctl32,
-#endif
 };
 
 unsigned int mtk_cam_get_sensor_pixel_id(unsigned int fmt)
@@ -2388,7 +2391,7 @@ int mtk_cam_video_s_fmt_common(struct mtk_cam_video_device *node,
 		try_fmt.fmt.pix_mp.num_planes = 1;
 
 	if (try_fmt.fmt.pix_mp.num_planes > MAX_SUBSAMPLE_PLANE_NUM) {
-		dev_info_ratelimited(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
+		dev_dbg(cam->dev, "%s:%s:pipe(%d):%s:invalid num_planes(%d)\n",
 			 __func__, dbg_str, node->uid.pipe_id, node->desc.name,
 			 try_fmt.fmt.pix_mp.num_planes);
 		try_fmt.fmt.pix_mp.num_planes = MAX_SUBSAMPLE_PLANE_NUM;
@@ -2422,7 +2425,7 @@ int mtk_cam_video_s_fmt_common(struct mtk_cam_video_device *node,
 				sizeimage;
 		}
 
-		dev_info_ratelimited(cam->dev,
+		dev_dbg(cam->dev,
 			 "%s:%s:pipe(%d):%s:stride:%d, size:%d, num_planes(%d)\n",
 			 __func__, dbg_str, node->uid.pipe_id, node->desc.name,
 			 bytesperline, sizeimage,

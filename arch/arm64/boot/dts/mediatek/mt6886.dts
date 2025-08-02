@@ -1667,9 +1667,9 @@
 					"topckgen_top_camtm_sel";
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L14_CAMSV_CQI_E0)
-				&mmqos SLAVE_COMMON(1)>,
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L14_CAMSV_E0_WDMA)
-				&mmqos SLAVE_COMMON(1)>;
+				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names =
 			"l14_cqi_a",
 			"l14_imgo_a";
@@ -1716,9 +1716,9 @@
 					"topckgen_top_camtm_sel";
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAMSV_CQI_E1)
-				&mmqos SLAVE_COMMON(1)>,
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAMSV_E1_WDMA)
-				&mmqos SLAVE_COMMON(1)>;
+				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names =
 			"l13_cqi_b",
 			"l13_imgo_b";
@@ -2027,11 +2027,11 @@
 					"topckgen_top_muxcamtm";
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW1_CQI_M1)
-				&mmqos SLAVE_COMMON(1)>,
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW1_IMGBO_M1)
-				&mmqos SLAVE_COMMON(1)>,
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW1_IMGO_M1)
-				&mmqos SLAVE_COMMON(1)>;
+				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names =
 			"l26_cqi_m1_1",
 			"l26_imgo_m1_1",
@@ -2123,11 +2123,11 @@
 					"topckgen_top_muxcamtm";
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW3_CQI_M1)
-				&mmqos SLAVE_COMMON(1)>,
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW3_IMGBO_M1)
-				&mmqos SLAVE_COMMON(1)>,
+				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L26_MRAW3_IMGO_M1)
-				&mmqos SLAVE_COMMON(1)>;
+				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names =
 			"l26_cqi_m1_3",
 			"l26_imgo_m1_3",
@@ -2520,59 +2520,65 @@
 		compatible = "mediatek,charger,pd";
 		gauge = <&mtk_gauge>;
 
-		min_charger_voltage = <4600000>;
-		pd_vbus_low_bound = <5000000>;
-		pd_vbus_upper_bound = <5000000>;
-		vsys_watt = <5000000>;
-		ibus_err = <14>;
+		min-charger-voltage = <4600000>;
+		pd-vbus-low-bound = <5000000>;
+		pd-vbus-upper-bound = <5000000>;
+		vsys-watt = <5000000>;
+		ibus-err = <14>;
 
-		pd_stop_battery_soc = <80>;
+		pd-stop-battery-soc = <80>;
 
 		/* single charger */
-		sc_input_current = <3200000>;
-		sc_charger_current = <3000000>;
+		sc-input-current = <3200000>;
+		sc-charger-current = <3000000>;
 
 		/* dual charger in series*/
-		dcs_input_current = <3200000>;
-		dcs_chg1_charger_current = <1500000>;
-		dcs_chg2_charger_current = <1500000>;
+		dcs-input-current = <3200000>;
+		dcs-chg1-charger-current = <1500000>;
+		dcs-chg2-charger-current = <1500000>;
 
 		/* dual charger */
-		dual_polling_ieoc = <450000>;
-		slave_mivr_diff = <100000>;
-		vbat_threshold = <4150>;
+		dual-polling-ieoc = <450000>;
+		slave-mivr-diff = <100000>;
+		vbat-threshold = <4150>;
+
+		/* rcable */
+		enable-inductor-protect = <1>;
 	};
 
-	pe4: pe4 {
-		compatible = "mediatek,charger,pe4";
+	pe45: pe45 {
+		compatible = "mediatek,charger,pe45";
 		gauge = <&mtk_gauge>;
 
-		min_charger_voltage = <4600000>;
-		pe40_stop_battery_soc = <80>;
+		min-charger-voltage = <4600000>;
+		pe45-stop-battery-soc = <80>;
 
-		high_temp_to_leave_pe40 = <46>;
-		high_temp_to_enter_pe40 = <39>;
-		low_temp_to_leave_pe40 = <10>;
-		low_temp_to_enter_pe40 = <16>;
-		ibus_err = <14>;
+		high-temp-to-leave-pe45 = <46>;
+		high-temp-to-enter-pe45 = <39>;
+		low-temp-to-leave-pe45 = <10>;
+		low-temp-to-enter-pe45 = <16>;
+		ibus-err = <14>;
 
-		/* PE 4.0 cable impedance (mohm) */
-		pe40_r_cable_1a_lower = <500>;
-		pe40_r_cable_2a_lower = <351>;
-		pe40_r_cable_3a_lower = <240>;
+		/* PE 4.5 cable impedance (mohm) */
+		pe45-r-cable-1a-lower = <500>;
+		pe45-r-cable-2a-lower = <351>;
+		pe45-r-cable-3a-lower = <240>;
+		pe45-r-cable-level = <200 300 400 500 500>;
+		pe45-r-cable-voltage = <5000 5500 6000 6500 7000>;
+		pe45-r-cable-current-limit = <3000 3000 3000 2500 2200>;
 
 		/* single charger */
-		sc_input_current = <3200000>;
-		sc_charger_current = <3000000>;
+		sc-input-current = <3200000>;
+		sc-charger-current = <3000000>;
 
 		/* dual charger in series*/
-		dcs_input_current = <3200000>;
-		dcs_chg1_charger_current = <1500000>;
-		dcs_chg2_charger_current = <1500000>;
+		dcs-input-current = <3200000>;
+		dcs-chg1-charger-current = <1500000>;
+		dcs-chg2-charger-current = <1500000>;
 
-		dual_polling_ieoc = <450000>;
-		slave_mivr_diff = <100000>;
-		vbat_threshold = <4150>;
+		dual-polling-ieoc = <450000>;
+		slave-mivr-diff = <100000>;
+		vbat-threshold = <4150>;
 	};
 
 	pe5: pe5 {
@@ -4840,7 +4846,7 @@
 		mediatek,ccu-rproc = <&ccu_rproc>;
 		#clock-cells = <1>;
 		clocks = <&mmdvfs_clk CLK_MMDVFS_VCORE>, <&mmdvfs_clk CLK_MMDVFS_VMM>;
-		clock-names = "vcore", "vmm";
+		clock-names = "pwr_vcore", "pwr_vmm";
 	};
 
 	mmdvfs-v3-start {
@@ -7768,6 +7774,7 @@
 			mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			interconnects = <&mmqos SLAVE_LARB(35) &mmqos SLAVE_COMMON(0)>;
 			interconnect-names = "disp_hrt_qos";
+			pre-define-bw = <0xffffffff>, <0>, <0>, <0>;
 			/* define threads, see mt6886-gce.h */
 			mediatek,mailbox-gce = <&gce>;
 			mboxes = <&gce 0 0 CMDQ_THR_PRIO_4>,
@@ -7899,7 +7906,8 @@
 				"MTK_DRM_OPT_VIRTUAL_DISP",
 				"MTK_DRM_OPT_RES_SWITCH",
 				"MTK_DRM_OPT_OVL_BW_MONITOR",
-				"MTK_DRM_OPT_GPU_CACHE";
+				"MTK_DRM_OPT_GPU_CACHE",
+				"MTK_DRM_OPT_SPHRT";
 
 			helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 				<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -7954,7 +7962,8 @@
 				<1>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
 				<0>, /*MTK_DRM_OPT_RES_SWITCH*/
 				<0>, /*MTK_DRM_OPT_OVL_BW_MONITOR*/
-				<0>; /*MTK_DRM_OPT_GPU_CACHE*/
+				<0>, /*MTK_DRM_OPT_GPU_CACHE*/
+				<1>; /*MTK_DRM_OPT_SPHRT*/
 		};
 
 		disp_mutex0: disp_mutex@14001000 {
@@ -8913,6 +8922,7 @@
 			<M4U_PORT_L4_HW_VDEC_AVC_MV_EXT>,
 			<M4U_PORT_L4_HW_VDEC_RG_CTRL_DMA_EXT>,
 			<M4U_PORT_L4_HW_VDEC_UFO_ENC_EXT>,
+			<M4U_PORT_L36_VIDEO_uP>,
 			<M4U_PORT_L36_VIDEO_uP>;
 		m4u-port-names =
 			"M4U_PORT_VDEC_MC",
@@ -8927,7 +8937,8 @@
 			"M4U_PORT_VDEC_AVC_MV",
 			"M4U_PORT_VDEC_RG_CTRL_DMA",
 			"M4U_PORT_VDEC_UFO_ENC",
-			"M4U_PORT_VDEC_L32_VIDEO_UP";
+			"M4U_PORT_VDEC_VIDEO_UP_SEC",
+			"M4U_PORT_VDEC_VIDEO_UP_NOR";
 		mediatek,larbs = <&smi_larb4>;
 		interrupts = <GIC_SPI 685 IRQ_TYPE_LEVEL_HIGH 0>;
 		//dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
@@ -9448,6 +9459,15 @@
 	vcp-iommu-work {
 		vcp-support = <4>;
 		compatible = "mediatek,vcp-io-work";
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+		iommus = <&disp_iommu M4U_PORT_L36_VIDEO_uP>;
+	};
+
+	vcp-iommu-sec {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		vcp-support = <7>;
+		compatible =  "mediatek,vcp-io-sec";
 		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&disp_iommu M4U_PORT_L36_VIDEO_uP>;
 	};

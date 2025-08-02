@@ -10,6 +10,44 @@
 #define _LENS_LIST_H
 
 extern void MAIN2AF_PowerDown(void);
+// prize add by linchong 20231017 start
+#define AW8601CSR_SetI2Cclient AW8601CSR_SetI2Cclient_Main
+#define AW8601CSR_Ioctl AW8601CSR_Ioctl_Main
+#define AW8601CSR_Release AW8601CSR_Release_Main
+#define AW8601CSR_GetFileName AW8601CSR_GetFileName_Main
+extern int AW8601CSR_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				 spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long AW8601CSR_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+			   unsigned long a_u4Param);
+extern int AW8601CSR_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int AW8601CSR_GetFileName(unsigned char *pFileName);
+
+#define GT9772AF_SetI2Cclient GT9772AF_SetI2Cclient_Main
+#define GT9772AF_Ioctl GT9772AF_Ioctl_Main
+#define GT9772AF_Release GT9772AF_Release_Main
+#define GT9772AF_PowerDown GT9772AF_PowerDown_Main
+#define GT9772AF_GetFileName GT9772AF_GetFileName_Main
+extern int GT9772AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long GT9772AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+				unsigned long a_u4Param);
+extern int GT9772AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int GT9772AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
+extern int GT9772AF_GetFileName(unsigned char *pFileName);
+// prize add by linchong 20231017 end
+// prize add by chenwenhui 20240603 start
+#define PD9402AAF_SetI2Cclient PD9402AAF_SetI2Cclient_Main
+#define PD9402AAF_Ioctl PD9402AAF_Ioctl_Main
+#define PD9402AAF_Release PD9402AAF_Release_Main
+#define PD9402AAF_GetFileName PD9402AAF_GetFileName_Main
+extern int PD9402AAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				 spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long PD9402AAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+			   unsigned long a_u4Param);
+extern int PD9402AAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int PD9402AAF_GetFileName(unsigned char *pFileName);
+// prize add by chenwenhui 20240603 end
 
 #define AK7371AF_SetI2Cclient AK7371AF_SetI2Cclient_Main
 #define AK7371AF_Ioctl AK7371AF_Ioctl_Main

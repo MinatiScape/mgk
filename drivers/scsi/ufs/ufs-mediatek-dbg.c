@@ -476,17 +476,6 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 		writel(val, host->mphy_base + 0xA904);
 		val = val & (~0x02);
 		writel(val, host->mphy_base + 0xA904);
-
-		/* check status is already clear */
-		if (readl(host->mphy_base + 0xA808) ||
-			readl(host->mphy_base + 0xA908)) {
-
-			pr_info("%s: [%d] clear fail 0x%x 0x%x\n",
-				__func__, __LINE__,
-				readl(host->mphy_base + 0xA808),
-				readl(host->mphy_base + 0xA908)
-				);
-		}
 	} else {
 		cmd_hist[ptr].cmd.clk_gating.arg1 = 0;
 		cmd_hist[ptr].cmd.clk_gating.arg2 = 0;
@@ -603,12 +592,7 @@ static struct mod_tracepoints_table mod_interests[] = {
 };
 
 static struct tracepoints_table interests[] = {
-/* @ CL 6502432*/
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	{.name = "ufshcd_command", .func = probe_ufshcd_command, .en = TP_EN_LEGACY},
-#else
-	{.name = "ufshcd_command", .func = probe_ufshcd_command},
-#endif
 	{.name = "ufshcd_uic_command", .func = probe_ufshcd_uic_command},
 	{.name = "ufshcd_clk_gating", .func = probe_ufshcd_clk_gating},
 	{
@@ -1084,7 +1068,7 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 
 	cur = cmd_buf;
 	tok = strsep(&cur, " ");
-	if (kstrtoul(tok, 10, &op))
+	if (!tok || kstrtoul(tok, 10, &op))
 		return -EINVAL;
 
 	if (op == UFSDBG_CMD_LIST_DUMP) {
@@ -1114,7 +1098,7 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 		dev_info(hba->dev, "skip blocktag off\n");
 	} else if (op == UFSDBG_CMD_IRQ_SET) {
 		tok = strsep(&cur, " ");
-		if (kstrtoul(tok, 16, &op2))
+		if (!tok || kstrtoul(tok, 16, &op2))
 			return -EINVAL;
 		ret = write_irq_affinity(tok);
 		if (!ret)
@@ -1420,8 +1404,6 @@ int ufs_mtk_dbg_register(struct ufs_hba *hba)
 		interests[i].init = true;
 	}
 
-/* @ CL 6502432*/
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	FOR_EACH_MOD_INTEREST(i) {
 		if (mod_interests[i].tp == NULL) {
 			pr_info("Error: %s not found in modules. Check tracepoint or module load order.\n",
@@ -1437,7 +1419,6 @@ int ufs_mtk_dbg_register(struct ufs_hba *hba)
 					  NULL);
 		mod_interests[i].init = true;
 	}
-#endif
 
 	/* Create control nodes in procfs */
 	ret = ufs_mtk_dbg_init_procfs();
@@ -1469,10 +1450,7 @@ static int __init ufs_mtk_dbg_init(void)
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_UFS, ufs_mtk_dbg_get_aee_buffer);
 #endif
 
-/* @ CL 6502432*/
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	register_tracepoint_module_notifier(&tp_nb);
-#endif
 	return 0;
 }
 

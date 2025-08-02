@@ -101,9 +101,9 @@ static int mtk_disp_tdshp_write_reg(struct mtk_ddp_comp *comp,
 		goto thshp_write_reg_unlock;
 	}
 
-	DDPINFO("tdshp_en: %x, tdshp_limit: %x, tdshp_ylev_256: %x\n",
+	DDPINFO("tdshp_en: %x, tdshp_limit: %x, tdshp_ylev_256: %x g_disp_clarity_support[%d]\n",
 			disp_tdshp_regs->tdshp_en, disp_tdshp_regs->tdshp_limit,
-			disp_tdshp_regs->tdshp_ylev_256);
+			disp_tdshp_regs->tdshp_ylev_256, g_disp_clarity_support);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_TDSHP_CFG, 0x2 | g_tdshp_relay_value[id], 0x11);
@@ -114,7 +114,7 @@ static int mtk_disp_tdshp_write_reg(struct mtk_ddp_comp *comp,
 					disp_tdshp_regs->tdshp_ink_sel << 24 |
 					disp_tdshp_regs->tdshp_bypass_high << 29 |
 					disp_tdshp_regs->tdshp_bypass_mid << 30 |
-					disp_tdshp_regs->tdshp_en << 31), ~0);
+					disp_tdshp_regs->tdshp_en << 31), 0xFF0000FF);
 	else
 		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_TDSHP_00,
 			(disp_tdshp_regs->tdshp_softcoring_gain << 0 |
@@ -423,12 +423,19 @@ int mtk_drm_ioctl_tdshp_get_size(struct drm_device *dev, void *data,
 	u32 width = 0, height = 0;
 	struct DISP_TDSHP_DISPLAY_SIZE *dst =
 			(struct DISP_TDSHP_DISPLAY_SIZE *)data;
+	struct mtk_drm_private *private = dev->dev_private;
 
 	pr_notice("%s", __func__);
 
 	crtc = list_first_entry(&(dev)->mode_config.crtc_list,
 		typeof(*crtc), head);
 
+	if (IS_ERR_OR_NULL(private)) {
+		DDPMSG("%s, invalid private\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&private->commit.lock);
 	mtk_drm_crtc_get_panel_original_size(crtc, &width, &height);
 	if (width == 0 || height == 0) {
 		DDPFUNC("panel original size error(%dx%d).\n", width, height);
@@ -440,6 +447,7 @@ int mtk_drm_ioctl_tdshp_get_size(struct drm_device *dev, void *data,
 	g_tdshp_size.lcm_height = height;
 
 	disp_tdshp_wait_size(60);
+	mutex_unlock(&private->commit.lock);
 
 	pr_notice("%s ---", __func__);
 	memcpy(dst, &g_tdshp_size, sizeof(g_tdshp_size));
@@ -583,9 +591,12 @@ static void mtk_disp_tdshp_config(struct mtk_ddp_comp *comp,
 	// for Display Clarity
 	if (g_disp_clarity_support) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_TDSHP_00, (0x1 << 31), (0x1 << 31));
+			comp->regs_pa + DISP_TDSHP_00, 0x1 << 31, 0x1 << 31);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_TDSHP_CFG, (0x1F << 12), (0x1F << 12));
+			comp->regs_pa + DISP_TDSHP_CFG, 0x1F << 12, 0x1F << 12);
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_TDSHP_CFG, 0, 0x1 << 12);
 	}
 
 	g_tdshp_size.height = cfg->h;
@@ -862,13 +873,19 @@ static int mtk_disp_tdshp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (!default_comp && comp_id == DDP_COMPONENT_TDSHP0)
-		default_comp = &priv->ddp_comp;
-	if (!tdshp1_default_comp && comp_id == DDP_COMPONENT_TDSHP1)
-		tdshp1_default_comp = &priv->ddp_comp;
-
 	priv->data = of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, priv);
+
+	//if single pipe num is 2, use 0 or 2 for disp, others is for litepq
+	if (!default_comp && comp_id == DDP_COMPONENT_TDSHP0)
+		default_comp = &priv->ddp_comp;
+	if (priv->data->single_pipe_tdshp_num == 1) {
+		if (!tdshp1_default_comp && comp_id == DDP_COMPONENT_TDSHP1)
+			tdshp1_default_comp = &priv->ddp_comp;
+	} else if (priv->data->single_pipe_tdshp_num == 2) {
+		if (!tdshp1_default_comp && comp_id == DDP_COMPONENT_TDSHP2)
+			tdshp1_default_comp = &priv->ddp_comp;
+	}
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
@@ -950,11 +967,11 @@ struct platform_driver mtk_disp_tdshp_driver = {
 		},
 };
 
-int disp_tdshp_set_bypass(struct drm_crtc *crtc, int bypass)
+void disp_tdshp_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret = 0;
+	int ret;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_TDSHP, &bypass);
+
 	DDPINFO("%s : ret = %d", __func__, ret);
-	return ret;
 }

@@ -20,6 +20,17 @@
 #include "../../codecs/mt6377-accdet.h"
 #endif
 #include "../common/mtk-sp-spk-amp.h"
+
+#if IS_ENABLED(CONFIG_SND_SOC_AW87XXX)
+extern int aw87xxx_set_profile(int dev_index, char *profile);
+
+static char *aw_profile[] = {"Music", "Off"};
+
+enum aw87xxx_dev_index {
+	AW_DEV_0 = 0,
+};
+#endif
+
 /*
  * if need additional control for the ext spk amp that is connected
  * after Lineout Buffer / HP Buffer on the codec, put the control in
@@ -87,15 +98,29 @@ static int mt6835_mt6377_spk_amp_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
-
+	int ret = 0;
 	dev_info(card->dev, "%s(), event %d\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* spk amp on control */
+#if IS_ENABLED(CONFIG_SND_SOC_AW87XXX)
+	ret = aw87xxx_set_profile(AW_DEV_0, aw_profile[0]);
+	if (ret < 0) {
+		pr_err("[Awinic] %s: set profile[%s] failed", __func__, aw_profile[0]);
+		return ret;
+	}
+#endif
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* spk amp off control */
+#if IS_ENABLED(CONFIG_SND_SOC_AW87XXX)
+	ret = aw87xxx_set_profile(AW_DEV_0, aw_profile[1]);
+	if (ret < 0) {
+		pr_err("[Awinic] %s: set profile[%s] failed", __func__, aw_profile[1]);
+		return ret;
+	}
+#endif
 		break;
 	default:
 		break;
@@ -339,7 +364,7 @@ static int mt6835_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 static const struct snd_pcm_hardware mt6835_mt6377_vow_hardware = {
 	.info = (SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 		 SNDRV_PCM_INFO_MMAP_VALID),
@@ -644,7 +669,7 @@ SND_SOC_DAILINK_DEFS(btcvsd,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("18050000.mtk-btcvsd-snd")));
 #endif
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 SND_SOC_DAILINK_DEFS(vow,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_CODEC(DEVICE_MT6377_NAME,
@@ -1236,7 +1261,7 @@ static struct snd_soc_dai_link mt6835_mt6377_dai_links[] = {
 	},
 #endif
 	/* VoW */
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 	{
 		.name = "VOW_Capture",
 		.stream_name = "VOW_Capture",

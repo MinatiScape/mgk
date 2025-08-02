@@ -1068,6 +1068,12 @@ s32 pwm_set_spec_config(struct pwm_spec_config *conf)
 	switch (conf->mode) {
 	case PWM_MODE_OLD:
 		pr_debug(T "PWM_MODE_OLD\n");
+//drv  clk output 26m   yaozhipeng 20240515 start
+		if (mt_get_pwm_version())
+			mt_pwm_clk_sel_hal(conf->pwm_no, CLK_26M);
+		else
+			mt_pwm_26M_clk_enable_hal(1);
+//drv  clk output 26m   yaozhipeng 20240515 end		
 		mt_set_pwm_con_oldmode(conf->pwm_no, OLDMODE_ENABLE);
 		mt_set_pwm_con_idleval(conf->pwm_no,
 			conf->PWM_MODE_OLD_REGS.IDLE_VALUE);

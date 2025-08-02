@@ -524,6 +524,20 @@ done:
 	return 0;
 }
 
+//modify by shenwenbin for ESD recovery not send backlight 20240106 start
+atomic_t gEsdStatus;
+int mtk_drm_esd_check_status(void)
+{
+	return 	atomic_read(&gEsdStatus);
+}
+EXPORT_SYMBOL(mtk_drm_esd_check_status);
+void mtk_drm_esd_set_status(int status)
+{
+	atomic_set(&gEsdStatus, status);
+}
+EXPORT_SYMBOL(mtk_drm_esd_set_status);
+//modify by shenwenbin for ESD recovery not send backlight 20240106 end
+
 int mtk_drm_esd_testing_process(struct mtk_drm_esd_ctx *esd_ctx, bool need_lock)
 {
 		struct mtk_drm_private *private = NULL;
@@ -567,7 +581,8 @@ int mtk_drm_esd_testing_process(struct mtk_drm_esd_ctx *esd_ctx, bool need_lock)
 			ret = mtk_drm_esd_check(crtc);
 			if (!ret) /* success */
 				break;
-
+            mtk_drm_esd_set_status(1);  //modify by shenwenbin for ESD recovery not send backlight 20240106
+            
 			DDPPR_ERR("[ESD%u]esd check fail, will do esd recovery. try=%d\n",
 				crtc_idx, i);
 			mtk_drm_esd_recover(crtc);
@@ -689,7 +704,7 @@ void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable)
 	if (esd_ctx) {
 		mtk_crtc->esd_ctx = esd_ctx;
 	} else {
-		DDPPR_ERR("%s:%d invalid ESD context, crtc id:%d\n",
+		DDPINFO("%s:%d invalid ESD context, crtc id:%d\n",
 				__func__, __LINE__, drm_crtc_index(crtc));
 		return;
 	}
@@ -730,7 +745,12 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 	struct mtk_drm_esd_ctx *esd_ctx;
 	struct mtk_ddp_comp *output_comp;
 
-	output_comp = (mtk_crtc) ? mtk_ddp_comp_request_output(mtk_crtc) : NULL;
+	if (IS_ERR_OR_NULL(mtk_crtc)) {
+		DDPPR_ERR("%s invalid crtc\n", __func__);
+		return;
+	}
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	panel_ext = mtk_crtc->panel_ext;
 	if (!(panel_ext && panel_ext->params)) {
 		DDPMSG("can't find panel_ext handle\n");
@@ -794,7 +814,8 @@ void mtk_disp_chk_recover_init(struct drm_crtc *crtc)
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
-
+    
+    mtk_drm_esd_set_status(0);  //modify by shenwenbin for ESD recovery not send backlight 20240106
 	output_comp = (mtk_crtc) ? mtk_ddp_comp_request_output(mtk_crtc) : NULL;
 
 	/* only support ESD check for DSI output interface */

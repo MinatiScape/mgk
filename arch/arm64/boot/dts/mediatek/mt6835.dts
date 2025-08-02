@@ -48,6 +48,7 @@
 		ovl4  = &disp_ovl1_2l;
 		rdma0 = &disp_rdma0;
 		wdma0 = &disp_wdma0;
+		dsc0 = &disp_dsc0_wrap;
 		dsi0  = &dsi0;
 		rsz0 = &disp_rsz0;
 		color0 = &disp_color0;
@@ -56,6 +57,7 @@
 		gamma0 = &disp_gamma0;
 		dither0 = &disp_dither0;
 		postmask0 = &disp_postmask0;
+		c3d0 = &disp_c3d0;
 		mtksmmu0 = &disp_iommu;
 	};
 
@@ -67,7 +69,8 @@
 			    transparent_hugepage=never \
 			    8250.nr_uarts=2 \
 				firmware_class.path=/vendor/firmware pelt=8 \
-				androidboot.hardware=mt6835";
+				androidboot.hardware=mt6835 \
+				loop.max_part=7";
 		kaslr-seed = <0 0>;
 	};
 
@@ -1329,7 +1332,11 @@
 	touch: touch {
 		compatible = "mediatek,touch";
 	};
-
+//add by wangfei for fp 20231018 start 
+	focaltech_fp: focaltech_fp {
+		compatible = "focaltech,fp";
+	};
+//add by wangfei for fp 20231018 end
 	qos:qos@11bb00 {
 		compatible = "mediatek,mt6893-qos";
 		mediatek,qos-enable = <1>;
@@ -2682,6 +2689,7 @@
 				<&topckgen_clk CLK_TOP_SPI_SEL>,
 				<&pericfg_ao_clk CLK_PERAOP_SPI1_BCLK>;
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
+			tee-only;
 		};
 
 		spi2: spi2@11012000 {
@@ -3545,6 +3553,13 @@
 			ccci-infracfg = <&infracfg_ao_clk>;
 			ccci-topckgen = <&topckgen_clk>;
 			ccci-spmsleep = <&apccci_mdo1>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			md-bus-addr@0 {
+				compatible = "mediatek,md-bus";
+				reg = <0 0x21a00200 0 0x4>;
+			};
 		};
 
 		md_auxadc:md-auxadc {
@@ -3653,7 +3668,7 @@
 			mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			interconnects = <&mmqos SLAVE_LARB(21) &mmqos SLAVE_COMMON(0)>;
 			interconnect-names = "disp_hrt_qos";
-
+			pre-define-bw = <0xffffffff>, <0>, <0>, <0>;
 			/* define threads, see mt6835-gce.h */
 			mediatek,mailbox-gce = <&gce>;
 			mboxes = <&gce 0 0 CMDQ_THR_PRIO_4>,
@@ -3757,6 +3772,7 @@
 				"MTK_DRM_OPT_MML_PRIMARY",
 				"MTK_DRM_OPT_DUAL_TE",
 				"MTK_DRM_OPT_VIRTUAL_DISP",
+				"MTK_DRM_OPT_SPHRT",
 				"MTK_DRM_OPT_RES_SWITCH";
 
 			helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
@@ -3807,6 +3823,7 @@
 				<0>, /*MTK_DRM_OPT_MML_PRIMARY*/
 				<0>, /*MTK_DRM_OPT_DUAL_TE*/
 				<0>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
+				<1>, /*MTK_DRM_OPT_SPHRT*/
 				<0>; /*MTK_DRM_OPT_RES_SWITCH*/
 		};
 
@@ -3895,6 +3912,14 @@
 						"DDP_COMPONENT_RDMA0_hrt_qos";
 		};
 
+		disp_c3d0: disp-c3d0@14008000 {
+			compatible = "mediatek,disp_c3d0",
+				"mediatek,mt6835-disp-c3d";
+			reg = <0 0x14008000 0 0x1000>;
+			interrupts = <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_C3D0>;
+		};
+
 		disp_color0: disp_color0@14009000 {
 			compatible = "mediatek,disp_color0",
 				"mediatek,mt6835-disp-color";
@@ -3980,6 +4005,14 @@
 
 		gateic0: gateic@0 {
 			compatible = "mediatek,mtk-drm-gateic-drv";
+		};
+
+		disp_dsc0_wrap: disp-dsc-wrap@14015000 {
+			compatible = "mediatek,disp_dsc_wrap",
+						"mediatek,mt6835-disp-dsc";
+			reg = <0 0x14015000 0 0x1000>;
+			interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_DSC_WRAP0>;
 		};
 
 		dsi0: dsi@14017000 {
@@ -4389,6 +4422,15 @@
 			iommus = <&disp_iommu M4U_PORT_L22_VIDEO_UP_256MB2>;
 		};
 
+		vcp-iommu-sec {
+		#address-cells = <2>;
+		#size-cells = <2>;
+			vcp-support = <7>;
+			compatible =  "mediatek,vcp-io-sec";
+			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+			iommus = <&disp_iommu M4U_PORT_L22_VIDEO_UP_512MB1>;
+		};
+
 		vcu: vcu@16000000 {
 			compatible = "mediatek-vcu";
 			mediatek,vcuid = <0>;
@@ -4537,7 +4579,7 @@
 				<892744264 921600 30 3686400 30 8847360 30>, /* H.265 */
 				<809062486 921600 30 3686400 30 8847360 30>; /* VP9 */
 			throughput-table =
-				<877088845 0 595 595>, /* MPEG4, FHD60 312M */
+				<877088845 0 642 642>, /* MPEG4, FHD60 416M */
 				<859189832 0 595 595>, /* H.263, FHD60 312M */
 				<875967048 0 595 595>, /* H.264 */
 				<826496577 0 595 595>, /* H.264 */
@@ -4715,8 +4757,11 @@
 			backlight {
 				label = "lcd-backlight";
 				max-brightness = <2047>;
-				min-brightness = <4>;
+				min-brightness = <24>;
 				max-hw-brightness = <2047>;
+				/* prize liuyong, modify boot up backlight, 20231205, start*/
+				default-brightness = <1638>;
+				/* prize liuyong, modify boot up backlight, 20231205, end*/
 			};
 		};
 
@@ -4756,7 +4801,8 @@
 				     0x11300298 0x11300318 0x11300398 0x11300418 0x11300498
 				     0x11300518 0x11300598 0x11300618 0x11300698 0x11300718
 				     0x11300798 0x11300818 0x11300898 0x1130091c 0x1130099c
-				     0x11300a1c 0x11300a9c 0x11300b1c 0x11300b9c>;
+				     0x11300a1c 0x11300a9c 0x11300b1c 0x11300b9c 0x10001c80
+				     0x10001c8c 0x11036014 0x11036018 0x100000b0>;
 		};
 
 		consys: consys@18002000 {
@@ -5074,11 +5120,26 @@
 			clock-names = "kpd";
 		};
 
+		prize_board_id: prize_board_id{
+			compatible = "prize,board-id";
+			board_id_sel1 = <&pio 114 0x0>;
+			board_id_sel2 = <&pio 113 0x0>;
+			board_id_sel3 = <&pio 112 0x0>;
+		};
+
+		/* prize liuyong, Add SIM card slot detection, 20240103, start */
+		sim_slot_state: sim_slot_state{
+			compatible = "prize,sim-slot-state";
+			gpio_state = <&pio 48 0x0>;
+		};
+		/* prize liuyong, Add SIM card slot detection, 20240103, end */
+
 		regulator_vibrator: regulator-vibrator {
 			compatible = "regulator-vibrator";
 			label = "vibrator";
-			min-volt = <2800000>;
-			max-volt = <3500000>;
+			//prize liuyong, modify vib voltage config
+			min-volt = <3000000>;
+			max-volt = <3000000>;
 		};
 
 		dvfsrc: dvfsrc@1c00f000 {
@@ -5618,11 +5679,17 @@
 				reg = <0 0x11e40000 0 0x700>;
 				#phy-cells = <1>;
 				usb2jtag = <&vlpcfg_bus 2>;
-				mediatek,eye-vrt = <5>;
-				mediatek,eye-term = <5>;
+				/* pri liu yong modify usb eye, 20240816, start */
+				mediatek,eye-vrt = <6>;
+				mediatek,eye-term = <6>;
 				mediatek,rev4 = <1>;
-				mediatek,discth = <9>;
+				mediatek,rev6 = <2>;
+				mediatek,discth = <0xf>;
 				mediatek,rx-sqth = <5>;
+				mediatek,eye-vrt-host = <6>;
+				mediatek,eye-term-host = <4>;
+				mediatek,rev6-host = <3>;
+				/* pri liu yong modify usb eye, 20240816, start */
 				nvmem-cells = <&u2_phy_data>;
 				nvmem-cell-names = "intr";
 				nvmem-cell-masks = <0x1f>;
@@ -5882,7 +5949,11 @@
 					"aud_gpio_i2s0_off",
 					"aud_gpio_i2s0_on",
 					"aud_gpio_i2s3_off",
-					"aud_gpio_i2s3_on";
+					"aud_gpio_i2s3_on",
+					"vow_dat_miso_off",
+					"vow_dat_miso_on",
+					"vow_clk_miso_off",
+					"vow_clk_miso_on";
 			pinctrl-0 = <&aud_clk_mosi_off>;
 			pinctrl-1 = <&aud_clk_mosi_on>;
 			pinctrl-2 = <&aud_dat_mosi_off>;
@@ -5895,6 +5966,10 @@
 			pinctrl-9 = <&aud_gpio_i2s0_on>;
 			pinctrl-10 = <&aud_gpio_i2s3_off>;
 			pinctrl-11 = <&aud_gpio_i2s3_on>;
+			pinctrl-12 = <&vow_dat_miso_off>;
+			pinctrl-13 = <&vow_dat_miso_on>;
+			pinctrl-14 = <&vow_clk_miso_off>;
+			pinctrl-15 = <&vow_clk_miso_on>;
 		};
 
 		audio_sram@11052000 {
@@ -6002,12 +6077,12 @@
 		enable_pd20_reset;
 		power_path_support;
 		max_charger_voltage = <6500000>;
-		fast_charge_voltage = <3000000>;
+		fast_charge_voltage = <3100000>;
 
 		/* charging current */
 		usb_charger_current = <500000>;
 		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
+		ac_charger_input_current = <2000000>;
 		non_std_ac_charger_current = <500000>;
 		charging_host_charger_current = <1500000>;
 		ta_ac_charger_current = <3000000>;
@@ -6070,58 +6145,64 @@
 	pdc: pdc {
 		compatible = "mediatek,charger,pd";
 
-		min_charger_voltage = <4600000>;
-		pd_vbus_low_bound = <5000000>;
-		pd_vbus_upper_bound = <5000000>;
-		vsys_watt = <5000000>;
-		ibus_err = <14>;
+		min-charger-voltage = <4600000>;
+		pd-vbus-low-bound = <5000000>;
+		pd-vbus-upper-bound = <5000000>;
+		vsys-watt = <5000000>;
+		ibus-err = <14>;
 
-		pd_stop_battery_soc = <80>;
+		pd-stop-battery-soc = <80>;
 
 		/* single charger */
-		sc_input_current = <3200000>;
-		sc_charger_current = <3000000>;
+		sc-input-current = <3200000>;
+		sc-charger-current = <3000000>;
 
 		/* dual charger in series*/
-		dcs_input_current = <3200000>;
-		dcs_chg1_charger_current = <1500000>;
-		dcs_chg2_charger_current = <1500000>;
+		dcs-input-current = <3200000>;
+		dcs-chg1-charger-current = <1500000>;
+		dcs-chg2-charger-current = <1500000>;
 
 		/* dual charger */
-		dual_polling_ieoc = <450000>;
-		slave_mivr_diff = <100000>;
-		vbat_threshold = <4150>;
+		dual-polling-ieoc = <450000>;
+		slave-mivr-diff = <100000>;
+		vbat-threshold = <4150>;
+
+		/* rcable */
+		enable-inductor-protect = <1>;
 	};
 
-	pe4: pe4 {
-		compatible = "mediatek,charger,pe4";
+	pe45: pe45 {
+		compatible = "mediatek,charger,pe45";
 
-		min_charger_voltage = <4600000>;
-		pe40_stop_battery_soc = <80>;
+		min-charger-voltage = <4600000>;
+		pe45-stop-battery-soc = <80>;
 
-		high_temp_to_leave_pe40 = <46>;
-		high_temp_to_enter_pe40 = <39>;
-		low_temp_to_leave_pe40 = <10>;
-		low_temp_to_enter_pe40 = <16>;
-		ibus_err = <14>;
+		high-temp-to-leave-pe45 = <46>;
+		high-temp-to-enter-pe45 = <39>;
+		low-temp-to-leave-pe45 = <10>;
+		low-temp-to-enter-pe45 = <16>;
+		ibus-err = <14>;
 
-		/* PE 4.0 cable impedance (mohm) */
-		pe40_r_cable_1a_lower = <500>;
-		pe40_r_cable_2a_lower = <351>;
-		pe40_r_cable_3a_lower = <240>;
+		/* PE 4.5 cable impedance (mohm) */
+		pe45-r-cable-1a-lower = <500>;
+		pe45-r-cable-2a-lower = <351>;
+		pe45-r-cable-3a-lower = <240>;
+		pe45-r-cable-level = <200 300 400 500 500>;
+		pe45-r-cable-voltage = <5000 5500 6000 6500 7000>;
+		pe45-r-cable-current-limit = <3000 3000 3000 2500 2200>;
 
 		/* single charger */
-		sc_input_current = <3200000>;
-		sc_charger_current = <3000000>;
+		sc-input-current = <3200000>;
+		sc-charger-current = <3000000>;
 
 		/* dual charger in series*/
-		dcs_input_current = <3200000>;
-		dcs_chg1_charger_current = <1500000>;
-		dcs_chg2_charger_current = <1500000>;
+		dcs-input-current = <3200000>;
+		dcs-chg1-charger-current = <1500000>;
+		dcs-chg2-charger-current = <1500000>;
 
-		dual_polling_ieoc = <450000>;
-		slave_mivr_diff = <100000>;
-		vbat_threshold = <4150>;
+		dual-polling-ieoc = <450000>;
+		slave-mivr-diff = <100000>;
+		vbat-threshold = <4150>;
 	};
 
 	pe5: pe5 {
@@ -6178,33 +6259,33 @@
 
 	charger: charger {
 		compatible = "mediatek,charger";
-		charger = <&mt6375_chg>;
+		charger = <&upm6910_chg>;
 		bootmode = <&chosen>;
 
 		algorithm_name = "Basic";
 		charger_configuration= <0>;
 
 		/* common */
-		battery_cv = <4350000>;
+		battery_cv = <4464000>;
 		max_charger_voltage = <6500000>;
-		min_charger_voltage = <4600000>;
+		min_charger_voltage = <4500000>;
 
 		/* sw jeita */
 		enable-vbat-mon = <0>;
-		/* enable_sw_jeita; */
-		jeita_temp_above_t4_cv = <4240000>;
-		jeita_temp_t3_to_t4_cv = <4240000>;
-		jeita_temp_t2_to_t3_cv = <4340000>;
-		jeita_temp_t1_to_t2_cv = <4240000>;
-		jeita_temp_t0_to_t1_cv = <4040000>;
-		jeita_temp_below_t0_cv = <4040000>;
-		temp_t4_thres = <50>;
-		temp_t4_thres_minus_x_degree = <47>;
+		enable_sw_jeita;
+		jeita_temp_above_t4_cv = <4150000>;
+		jeita_temp_t3_to_t4_cv = <4150000>;
+		jeita_temp_t2_to_t3_cv = <4464000>;
+		jeita_temp_t1_to_t2_cv = <4464000>;
+		jeita_temp_t0_to_t1_cv = <4464000>;
+		jeita_temp_below_t0_cv = <4150000>;
+		temp_t4_thres = <55>;
+		temp_t4_thres_minus_x_degree = <51>;
 		temp_t3_thres = <45>;
-		temp_t3_thres_minus_x_degree = <39>;
-		temp_t2_thres = <10>;
+		temp_t3_thres_minus_x_degree = <42>;
+		temp_t2_thres = <15>;
 		temp_t2_thres_plus_x_degree = <16>;
-		temp_t1_thres = <0>;
+		temp_t1_thres = <5>;
 		temp_t1_thres_plus_x_degree = <6>;
 		temp_t0_thres = <0>;
 		temp_t0_thres_plus_x_degree = <0>;
@@ -6214,19 +6295,35 @@
 		enable_min_charge_temp;
 		min_charge_temp = <0>;
 		min_charge_temp_plus_x_degree = <6>;
-		max_charge_temp = <50>;
-		max_charge_temp_minus_x_degree = <47>;
+		max_charge_temp = <55>;
+		max_charge_temp_minus_x_degree = <51>;
+
+		/*prize LiuYong, modify for charging current config, 20231017 -start*/
+		jeita_temp_t0_to_t1_input_current = <2000000>;
+		jeita_temp_t0_to_t1_charging_current = <2000000>;
+		jeita_temp_t1_to_t2_input_current = <2000000>;
+		jeita_temp_t1_to_t2_charging_current = <2100000>;
+		jeita_temp_t2_to_t3_input_current = <2000000>;
+		jeita_temp_t2_to_t3_charging_current = <2100000>;
+		jeita_temp_t3_to_t4_input_current = <2000000>;
+		jeita_temp_t3_to_t4_charging_current = <1500000>;
+
+		temp_screen_on_input_current = <2000000>;
+		temp_screen_on_charging_current = <1800000>;
+		/*prize LiuYong, modify for charging current config, 20231017 -end*/
 
 		/* charging current */
 		usb_charger_current = <500000>;
-		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
+		ac_charger_current = <2200000>;
+		ac_charger_input_current = <2000000>;
 		charging_host_charger_current = <1500000>;
 
 		/* dynamic mivr */
 		enable_dynamic_mivr;
+		/*prize LiuYong, modify for charging config, 20240725 -start*/
 		min_charger_voltage_1 = <4400000>;
 		min_charger_voltage_2 = <4200000>;
+		/*prize LiuYong, modify for charging config, 20240725 -end*/
 		max_dmivr_charger_current = <1800000>;
 
 		/* fast charging algo support indicator */
@@ -6409,19 +6506,19 @@
 			//		<6>; /* in_size */
 
 			/* feature, frequecy, coreid */
-			scp_feature_tbl = < 0   5 1>,	/* vow */
+			scp_feature_tbl = < 0   5 0>,	/* vow */
 					  < 1   0 0>,	/* sensor */
 					  < 2  26 0>,	/* flp */
 					  < 3   0 0>,	/* rtos */
-					  < 4 200 1>,	/* speaker */
+					  < 4 200 0>,	/* speaker */
 					  < 5   0 0>,	/* vcore */
-					  < 6 135 1>,	/* barge in */
-					  < 7  10 1>,	/* vow dump */
-					  < 8  80 1>,	/* vow vendor M */
-					  < 9  43 1>,	/* vow vendor A */
-					  <10  22 1>,	/* vow vendor G */
-					  <11  20 1>,	/* vow dual mic */
-					  <12 100 1>,	/* vow dual mic barge in */
+					  < 6 135 0>,	/* barge in */
+					  < 7  10 0>,	/* vow dump */
+					  < 8  80 0>,	/* vow vendor M */
+					  < 9  43 0>,	/* vow vendor A */
+					  <10  22 0>,	/* vow vendor G */
+					  <11  20 0>,	/* vow dual mic */
+					  <12 100 0>,	/* vow dual mic barge in */
 					  <13 200 0>,	/* ultrasound */
 					  <14 100 0>,	/* spk process */
 					  <15 728 0>;	/* voice call */
@@ -6436,10 +6533,11 @@
 			/* feature ID, size, alignment */
 			scp-mem-tbl = <0 0x0 0x0>, /* secure dump */
 						/* its size is in secure_dump_size */
-						< 1 0x4a700 0x0>, /* vow */
+						< 1 0xca700 0x0>, /* vow */
 						< 2 0x100000 0x0>, /* sensor main*/
 						< 3 0x180000 0x0>, /* logger */
 						< 4 0x200000 0x0>, /* audio 2M*/
+						< 5 0xa000 0x0>, /* vow bargein */
 						< 7 0x19000 0x0>, /* ultrasound*/
 						< 8 0x10000 0x0>, /* sensor supper*/
 						< 9 0x1000 0x0>, /* sensor list */
@@ -7353,17 +7451,18 @@
 
 	fusb304: fusb304 {
 		compatible = "mediatek,fusb304";
-		status = "okay";
+		status = "disable";
 	};
 
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
-		vbus-supply = <&mt6375_otg_vbus>;
+		/*vbus-supply = <&mt6375_otg_vbus>;*/ //pri liuyong,modify 20231016
 		vbus-voltage = <5000000>;
 		vbus-current = <1800000>;
-		charger = <&mt6375_chg>;
+		charger = <&upm6910_chg>;
 		tcpc = "type_c_port0";
 		mediatek,bypss-typec-sink = <1>;
+		mediatek,u2;
 		port {
 			usb_role: endpoint@0 {
 				remote-endpoint = <&mtu3_drd_switch>;
@@ -7377,7 +7476,7 @@
 
 	typec_mux_switch: typec_mux_switch {
 		compatible = "mediatek,typec_mux_switch";
-		status = "okay";
+		status = "disabled";
 	};
 
 	mrdump_ext_rst: mrdump_ext_rst {
@@ -7385,6 +7484,12 @@
 		mode = "IRQ";
 		status = "okay";
 	};
+
+	/* prize added for swtp start */
+	swtp: swtp {
+		compatible = "mediatek, swtp-eint";
+	};
+	/* prize added for swtp end */
 
 	pd_adapter: pd_adapter {
 		compatible = "mediatek,pd_adapter";
@@ -7398,7 +7503,17 @@
 	flashlight_core: flashlight_core {
 		compatible = "mediatek,flashlight_core";
 	};
-
+	//prize add by linchong 20231018 start
+	flashlights_aw3641e_gpio: flashlights_aw3641e_gpio {
+		compatible = "mediatek,flashlights_aw3641e_gpio";
+		decouple = <1>;
+		channel@1 {
+			type = <0>;
+			ct = <0>;
+			part = <0>;
+		};
+	};
+        //prize add by linchong 20231018 end
 	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
 		compatible = "mediatek,mtk_composite_v4l2_1";
 	};
@@ -7409,7 +7524,7 @@
 
 	mtk_ctd: mtk_ctd {
 		compatible = "mediatek,mtk_ctd";
-		bc12 = <&mt6375_chg>;
+		bc12 = <&upm6910_chg>;
 		bc12_sel = <0>;
 	};
 
@@ -7916,6 +8031,57 @@
 
 &i2c5 {
 	clock-frequency = <1000000>;
+
+	upm6910_chg:upm6910_chg@6b {
+		compatible = "upm,upm6910_charger";
+		reg = <0x6b>;
+		charger_name = "primary_chg";
+		upm,intr_gpio_num = <3>; /* direct defined GPIO num */
+		upm,intr_gpio = <&pio 3 0x0>; /* GPIO */
+		upm,chg-en-gpio = <&pio 148 0>;
+		upm,upm6910,usb-vreg = <4450>;
+		upm,upm6910,usb-ichg = <2000>;
+		/* prize liuyong, Increase the pre-charging current 180 to 480mA*/
+		upm,upm6910,precharge-current = <480>;
+		upm,upm6910,termination-current = <240>;
+		upm,upm6910,boost-voltage = <5000>;
+		upm,upm6910,boost-current = <1200>;
+		upm,upm6910,vac-ovp-threshold = <10500>;
+		bootmode = <&chosen>;
+		ssusb = <&ssusb>; /*prize liuyong, get usb state, 20231125*/
+		status = "okay";
+		phys = <&u2port0 PHY_TYPE_USB2>;
+		phy-names = "usb2-phy";
+	};
+
+	usb_type_c_aw35616: usb_type_c_aw35616@60 {
+		compatible = "awinic,usb_type_c_aw35616";
+		reg = <0x60>;
+		aw35616,irq-gpio = <&pio 9 0x0>;
+		aw35616-tcpc,name = "type_c_port0";
+		aw35616-tcpc,role_def = <5>; /* 1: SNK Only, 2: SRC Only, 3: DRP, 4: Try.SRC, 5: Try.SNK */
+		aw35616,rp_level = <0>; /* 0: Default, 1: 1.5, 2: 3.0 */
+		aw35616-tcpc,notifier_supply_num = <3>; /* the number of notifier supply */
+		aw35616_acc_support = <0>; /* 0:support, 1:No support */
+		aw35616_toggle_cycle = <0>; /* 0:Disable, 1:40ms, 2:80ms, 3:160ms */
+		status = "okay";
+	};
+
+//	aw35615_pd: aw35615_pd@22 {
+//		compatible = "awinic,aw35615";
+//		reg = <0x22>;
+//		awinic,int_n = <&pio 9 0>;
+//		aw35615,snk_pdo_size = <1>; /* set sink pdo num*/
+//		aw35615,snk_pdo_vol = <5000>; /* set sink pdo voltage mV*/
+//		aw35615,snk_pdo_cur = <2000>; /* set sink pdo current mA*/
+//		aw35615,src_pdo_size = <1>; /* set source pdo num*/
+//		aw35615,src_pdo_vol = <5000>; /* set source pdo voltage mV*/
+//		aw35615,src_pdo_cur = <1000>; /* set source pdo current mA*/
+//		aw35615,snk_tog_time = <0x38>; /* set toggle sink time */
+//		aw35615,src_tog_time = <0x24>; /* set toggle source time */
+//		status = "okay";
+//	};
+
 	mt6375: mt6375@34 {
 		compatible = "mediatek,mt6375";
 		reg = <0x34>;
@@ -8148,7 +8314,7 @@
 	ps5169: ps5169@28 {
 		compatible = "parade,ps5169";
 		reg = <0x28>;
-		status = "okay";
+		status = "disable";
 	};
 	gate_ic: gate_ic@11 {
 	compatible = "mediatek,gate-ic-i2c";
@@ -8156,6 +8322,26 @@
 	reg = <0x11>;
 	id = <6>;
 	status = "okay";
+	};
+};
+
+&i2c7 {
+	clock-frequency = <400000>;
+	upm6910_slave_chg: upm6910_slave_chg@6b {
+		compatible = "upm,upm6910_slave";
+		reg = <0x6b>;
+		charger_name = "secondary_chg";
+		upm,intr_gpio_num = <4>; /* direct defined GPIO num */
+		upm,intr_gpio = <&pio 4 0x0>; /* GPIO */
+		upm,chg-en-gpio = <&pio 12 0>;
+		upm,upm6910_slave,usb-vreg = <4450>;
+		upm,upm6910_slave,usb-ichg = <2000>;
+		upm,upm6910_slave,precharge-current = <180>;
+		upm,upm6910_slave,termination-current = <300>;
+		upm,upm6910_slave,boost-voltage = <5000>;
+		upm,upm6910_slave,boost-current = <1200>;
+		upm,upm6910_slave,vac-ovp-threshold = <10500>;
+		status = "okay";
 	};
 };
 
@@ -8235,6 +8421,34 @@
 	aud_dat_miso1_on: aud_dat_miso1_on {
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO169__FUNC_AUD_DAT_MISO1>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+	vow_dat_miso_off: vow_dat_miso_off {
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO168__FUNC_GPIO168>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	vow_dat_miso_on: vow_dat_miso_on {
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO168__FUNC_VOW_DAT_MISO>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+	vow_clk_miso_off: vow_clk_miso_off {
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO169__FUNC_GPIO169>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	vow_clk_miso_on: vow_clk_miso_on {
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO169__FUNC_VOW_CLK_MISO>;
 			input-schmitt-enable;
 			bias-disable;
 		};

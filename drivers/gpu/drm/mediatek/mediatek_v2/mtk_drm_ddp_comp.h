@@ -631,7 +631,9 @@ enum mtk_ddp_io_cmd {
 	DSI_PLL_SWITCH_REFERENCE_CNT_GET,
 	DSI_PLL_SWITCH_ON_OFF,
 	MDP_RDMA_FILL_FRAME,
-	DSI_NULL_PKT_SET,
+	/*AOD-SCP cmd start*/
+	DSI_AOD_SCP_GET_DSI_PARAM,
+	/*AOD-SCP cmd end*/
 };
 
 enum mtk_ddp_comp_apsrc_crtc_id {
@@ -780,6 +782,7 @@ struct mtk_ddp_comp {
 	u32 fbdc_bw;
 	u32 hrt_bw;
 	bool in_scaling_path;
+	bool clk_on;
 };
 
 static inline void mtk_ddp_comp_config_overhead(struct mtk_ddp_comp *comp,

@@ -83,7 +83,10 @@
 
 #define CONFIG_TCPC_SOURCE_VCONN		1
 #define CONFIG_TCPC_VCONN_SUPPLY_MODE		1
-
+//Begin deleted by lvyuanchuan for SN9102 on 2023/10/25 
+#define CONFIG_TCPC_VSAFE0V_DETECT	1
+#define CONFIG_TCPC_VSAFE0V_DETECT_IC 1
+//End added by lvyuanchuan for SN9102 on 2023/10/25 
 #define CONFIG_TCPC_LPM_CONFIRM		1
 #define CONFIG_TCPC_LPM_POSTPONE	1
 

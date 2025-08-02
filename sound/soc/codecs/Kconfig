@@ -169,6 +169,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_RT1305
 	imply SND_SOC_RT1308
 	imply SND_SOC_RT5512
+	imply SND_SOC_AW87XXX
 	imply SND_SOC_RT5514
 	imply SND_SOC_RT5616
 	imply SND_SOC_RT5631
@@ -905,7 +906,6 @@ config SND_SOC_MAX98095
 
 config SND_SOC_MAX98357A
 	tristate "Maxim MAX98357A CODEC"
-	depends on GPIOLIB
 
 config SND_SOC_MAX98371
 	tristate
@@ -1154,7 +1154,6 @@ config SND_SOC_RT1015
 
 config SND_SOC_RT1015P
 	tristate
-	depends on GPIOLIB
 
 config SND_SOC_RT1019
 	tristate
@@ -1855,7 +1854,7 @@ config SND_SOC_WSA881X
 config SND_SOC_ZL38060
 	tristate "Microsemi ZL38060 Connected Home Audio Processor"
 	depends on SPI_MASTER
-	select GPIOLIB
+	depends on GPIOLIB
 	select REGMAP
 	help
 	  Support for ZL38060 Connected Home Audio Processor from Microsemi,
@@ -1886,6 +1885,18 @@ config SND_SOC_MC13783
 config SND_SOC_ML26124
 	tristate
 	depends on I2C
+config SND_SOC_AW87XXX
+	tristate "SoC Audio for awinic AW87XXX Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for AW87XXX Smart K PA.
+
+# add by zhaohong for HAC support,20231017 start
+config MTK_HAC_SUPPORT
+        tristate "HAC for awinic aw8155B series"
+        help
+          This option enables support for HAC.
+# add by zhaohong for HAC support,20231017 end
 
 config SND_SOC_MT6338
 	tristate "MediaTek MT6338 Codec driver"
@@ -1979,6 +1990,20 @@ config SND_SOC_MT6368
 	  three ADC for uplink path(MICs), and
 	  three DAC for downlink path(handset,
 	  headset, lineout).
+
+config SND_SOC_AW87XXX
+	tristate "SoC Audio for awinic AW87XXX Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for AW87XXX Smart K PA.
+
+# add by zhaohong for HAC support,20231017 start
+config MTK_HAC_SUPPORT
+        tristate "HAC for awinic aw8155B series"
+        default n
+        help
+          This option enables support for HAC.
+# add by zhaohong for HAC support,20231017 end
 
 config SND_SOC_MT6377
 	tristate "MediaTek MT6377 Codec driver"

@@ -13,6 +13,13 @@
 #include <linux/power_supply.h>
 #include "mtk_smartcharging.h"
 
+/* prize add by liuyong, modify for screen on charging 20230315 start */
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+#include "../../gpu/drm/mediatek/mediatek_v2/mtk_panel_ext.h"
+#include "../../gpu/drm/mediatek/mediatek_v2/mtk_disp_notify.h"
+#endif
+/* prize add by liuyong, modify for screen on charging 20230315 end */
+
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
 
@@ -87,6 +94,17 @@ struct charger_data;
 
 #define MAX_ALG_NO 10
 
+// drv add tankaikun, add battery temp debug, 20231212 start
+#define MTK_DEBUG_TEMP_EN_CMD		0xb5b
+#define MTK_DEBUG_TEMP_DIS_CMD		0x5b5
+// drv add tankaikun, battery temp debug, 20231212 end
+
+// drv add by tankaikun, add for screen on charging 20230108 start
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+extern bool g_charge_is_screen_on;
+#endif
+// drv add by tankaikun, add for screen on charging 20230108 end
+
 enum bat_temp_state_enum {
 	BAT_TEMP_LOW = 0,
 	BAT_TEMP_NORMAL,
@@ -107,6 +125,18 @@ struct battery_thermal_protection_data {
 	int max_charge_temp;
 	int max_charge_temp_minus_x_degree;
 };
+
+/*prize LiuYong, modify for charging current config, 20230323 -start*/
+/* sw jeita current*/
+#define JEITA_TEMP_T0_TO_T1_INPUT_CURRENT	1500000	//1500mA
+#define JEITA_TEMP_T0_TO_T1_CHARGING_CURRENT	1500000	//1000mA
+#define JEITA_TEMP_T1_TO_T2_INPUT_CURRENT	1500000	//1500mA
+#define JEITA_TEMP_T1_TO_T2_CHARGING_CURRENT	1500000	//1500mA
+#define JEITA_TEMP_T2_TO_T3_INPUT_CURRENT	2000000	//2000mA
+#define JEITA_TEMP_T2_TO_T3_CHARGING_CURRENT	2000000	//2000mA
+#define JEITA_TEMP_T3_TO_T4_INPUT_CURRENT	1500000	//1500mA
+#define JEITA_TEMP_T3_TO_T4_CHARGING_CURRENT	1500000	//1000mA
+/*prize LiuYong, modify for charging current config, 20230323 -end*/
 
 /* sw jeita */
 #define JEITA_TEMP_ABOVE_T4_CV	4240000
@@ -199,6 +229,18 @@ struct charger_custom_data {
 	int temp_t0_thres;
 	int temp_t0_thres_plus_x_degree;
 	int temp_neg_10_thres;
+	/*prize LiuYong, modify for charging current config, 20221129 -start*/
+	unsigned int jeita_temp_t0_to_t1_input_current;
+	unsigned int jeita_temp_t0_to_t1_charging_current;
+	unsigned int jeita_temp_t1_to_t2_input_current;
+	unsigned int jeita_temp_t1_to_t2_charging_current;
+	unsigned int jeita_temp_t2_to_t3_input_current;
+	unsigned int jeita_temp_t2_to_t3_charging_current;
+	unsigned int jeita_temp_t3_to_t4_input_current;
+	unsigned int jeita_temp_t3_to_t4_charging_current;
+	unsigned int temp_screen_on_input_current;
+	unsigned int temp_screen_on_charging_current;
+	/*prize LiuYong, modify for charging current config, 20221129 -end*/
 
 	/* battery temperature protection */
 	int mtk_temperature_recharge_support;
@@ -227,6 +269,57 @@ struct charger_data {
 	int junction_temp_min;
 	int junction_temp_max;
 };
+
+// drv add tankaikun, add facoryt charger class, 20231204 start
+enum mtk_charge_type {
+	MTK_CHARGER_TYPE_UNKNOWN,
+	MTK_CHARGER_TYPE_SDP,
+	MTK_CHARGER_TYPE_CDP,
+	MTK_CHARGER_TYPE_DCP,
+	MTK_CHARGER_TYPE_WL_BPP,
+	MTK_CHARGER_TYPE_WL_EPP,
+};
+
+enum mtk_fast_charge_type {
+	MTK_FAST_CHARGER_TYPE_UNKNOWN = 0,
+	MTK_FAST_CHARGER_TYPE_PEP,
+	MTK_FAST_CHARGER_TYPE_PE20,
+	MTK_FAST_CHARGER_TYPE_PDC,
+	MTK_FAST_CHARGER_TYPE_PE40,
+	MTK_FAST_CHARGER_TYPE_PE50,
+	MTK_FAST_CHARGER_TYPE_HVBP,
+	MTK_FAST_CHARGER_TYPE_PE5P,
+	MTK_FAST_CHARGER_TYPE_WIRELESS_FAST,
+	MTK_FAST_CHARGER_TYPE_MAX,
+};
+
+struct mtk_fast_chg_type_map {
+	int fast_chg_type;
+	int fast_chrg_id;
+};
+
+static const char * const mtk_chg_type_name_list[] = {
+	[MTK_CHARGER_TYPE_UNKNOWN] = "Unknown",
+	[MTK_CHARGER_TYPE_SDP] = "USB_SDP",
+	[MTK_CHARGER_TYPE_CDP] = "USB_CDP",
+	[MTK_CHARGER_TYPE_DCP] = "USB_DCP",
+	[MTK_CHARGER_TYPE_WL_BPP] = "WIRELESS_BPP",
+	[MTK_CHARGER_TYPE_WL_EPP] = "WIRELESS_EPP",
+};
+
+static const char * const mtk_fast_chg_algo_list[] = {
+	[MTK_FAST_CHARGER_TYPE_UNKNOWN] = "Unknown",
+	[MTK_FAST_CHARGER_TYPE_PEP] = "PE+",
+	[MTK_FAST_CHARGER_TYPE_PE20] = "PE20",
+	[MTK_FAST_CHARGER_TYPE_PDC] = "PDC",
+	[MTK_FAST_CHARGER_TYPE_PE40] = "PE40",
+	[MTK_FAST_CHARGER_TYPE_PE50] = "PE50",
+	[MTK_FAST_CHARGER_TYPE_HVBP] = "HVBP",
+	[MTK_FAST_CHARGER_TYPE_PE5P] = "PE5P",
+	[MTK_FAST_CHARGER_TYPE_WIRELESS_FAST] = "WIRELESS_FAST_CHARGER",
+	[MTK_FAST_CHARGER_TYPE_MAX] = "ERROR",
+};
+// drv add tankaikun, add facoryt charger class, 20231204 start
 
 enum chg_data_idx_enum {
 	CHG1_SETTING,
@@ -281,6 +374,12 @@ struct mtk_charger {
 	struct power_supply_desc psy_hvdvchg_desc2;
 	struct power_supply_config psy_hvdvchg_cfg2;
 	struct power_supply *psy_hvdvchg2;
+
+	/* prize liuyong, add for charging config, 20231018, start */
+	struct power_supply_desc usb_desc;
+	struct power_supply_config usb_cfg;
+	struct power_supply *usb_psy;
+	/* prize liuyong, add for charging config, 20231018, end */
 
 	struct power_supply  *chg_psy;
 	struct power_supply  *bc12_psy;
@@ -397,11 +496,18 @@ struct mtk_charger {
 	/*charger IC charging status*/
 	bool is_charging;
 
+	bool debug_temp_en;
+	int debug_temp;
+	// drv add tankaikun, add battery temp debug, 20231220 end
 	ktime_t uevent_time_check;
 
 	bool force_disable_pp[CHG2_SETTING + 1];
 	bool enable_pp[CHG2_SETTING + 1];
 	struct mutex pp_lock[CHG2_SETTING + 1];
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	struct notifier_block disp_notifier;
+	bool is_screen_on;
+#endif
 };
 
 static inline int mtk_chg_alg_notify_call(struct mtk_charger *info,

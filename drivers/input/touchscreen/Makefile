@@ -124,3 +124,5 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/k6985v1_64_flip_alpha),)
 obj-$(CONFIG_TOUCHSCREEN_MT6985_ALPHA_SUPPORT) += k6985v1_64_flip_alpha/
 endif
+
+obj-$(CONFIG_TOUCHSCREEN_FTS_8057S)	+= focaltech_ft8057s/

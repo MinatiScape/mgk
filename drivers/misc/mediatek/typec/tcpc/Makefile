@@ -1,3 +1,13 @@
+ccflags-y += \
+		-DAW_HAVE_SNK \
+		-DAW_HAVE_SRC \
+		-DAW_HAVE_DRP \
+		-DAW_HAVE_VBUS_ONLY \
+		-DAW_HAVE_ACCMODE \
+		-DAW_HAVE_EXT_MSG \
+		-DAW_HAVE_VDM \
+		-DAW_HAVE_DP
+
 subdir-ccflags-y += -Wall -Werror
 subdir-ccflags-y += -I$(srctree)/drivers/power/supply/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/rt-regmap/
@@ -8,6 +18,8 @@ obj-$(CONFIG_TCPC_MT6362)		+= tcpc_mt6362.o
 obj-$(CONFIG_TCPC_MT6370)		+= tcpc_mt6370.o
 obj-$(CONFIG_TCPC_MT6375)		+= tcpc_mt6375.o
 obj-$(CONFIG_TCPC_RT1711H)		+= tcpc_rt1711h.o
+obj-$(CONFIG_TCPC_AW35616)		+= tcpc_aw35616.o
+obj-$(CONFIG_TCPC_AW35615_PD)		+= aw35615_whole.o
 
 tcpc_class-objs := tcpci_core.o tcpci_typec.o tcpci_timer.o tcpm.o tcpci.o tcpci_alert.o
 
@@ -24,3 +36,22 @@ tcpc_class-objs += tcpci_event.o \
 		pd_policy_engine_dbg.o pd_policy_engine_com.o pd_dpm_alt_mode_dc.o
 endif
 obj-$(CONFIG_TCPC_CLASS) += tcpc_class.o tcpci_late_sync.o pd_dbg_info.o rt_pd_manager.o
+
+aw35615_whole-objs := \
+		aw35615_driver.o \
+		aw35615_global.o \
+		platform_helpers.o \
+		dfs.o \
+		core.o \
+		PDPolicy.o \
+		timer.o \
+		PDProtocol.o \
+		TypeC.o \
+		Port.o \
+		vendor_info.o \
+		modules/dpm.o \
+		modules/observer.o \
+		vdm/bitfield_translators.o \
+		vdm/vdm.o \
+		vdm/vdm_callbacks.o \
+		vdm/DisplayPort/dp.o \

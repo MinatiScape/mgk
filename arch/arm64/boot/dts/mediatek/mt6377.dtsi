@@ -152,12 +152,14 @@
 					<&pmic_adc AUXADC_BATADC>,
 					<&pmic_adc AUXADC_VBIF>,
 					<&pmic_adc AUXADC_IMP>,
-					<&pmic_adc AUXADC_IMIX_R>;
+					<&pmic_adc AUXADC_IMIX_R>,
+					<&pmic_adc AUXADC_VCDT>;
 			io-channel-names = "pmic_battery_temp",
 					"pmic_battery_voltage",
 					"pmic_bif_voltage",
 					"pmic_ptim_voltage",
-					"pmic_ptim_r";
+					"pmic_ptim_r",
+					"pmic_vbus_voltage";
 
 			nvmem-cells = <&fg_init>, <&fg_soc>;
 			nvmem-cell-names = "initialization", "state-of-charge";
@@ -495,11 +497,12 @@
 			mt6377_vfp: vfp {
 				regulator-compatible = "VFP";
 				regulator-name = "mt6377_vfp";
-				regulator-min-microvolt = <1200000>;
+				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <200>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
+				regulator-always-on;
 			};
 			mt6377_vtp: vtp {
 				regulator-compatible = "VTP";

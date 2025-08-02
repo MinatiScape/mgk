@@ -860,6 +860,24 @@ config GAUGE_MT6375
 	  The fuelgauge calculates and determines the battery state of charge
 	  according to battery open circuit voltage.
 
+config CHARGER_UPM6910D
+	tristate "Load Switch Driver for unisemi upm6910d"
+	depends on MTK_CHARGER
+	help
+	  Say Yes to enable unisemi upm6910d driver.
+	  It is a load switch,
+	  which is good for direct charge.
+	  It depends on config MTK_CHARGER.
+
+config CHARGER_UPM6910D_SLAVE
+	tristate "Load Switch Driver for unisemi upm6910d"
+	depends on MTK_CHARGER
+	help
+	  Say Yes to enable unisemi upm6910d driver.
+	  It is a load switch,
+	  which is good for direct charge.
+	  It depends on config MTK_CHARGER.
+
 config GAUGE_BQ28Z610
 	tristate " TI BQ28Z610 gauge support"
 	depends on I2C
@@ -935,6 +953,17 @@ config MTK_PUMP_EXPRESS_40_SUPPORT
 	  PE+/PE+2.0.
 	  Set Yes to enable PE 4.0
 	  Set No to disable PE 4.0
+
+config MTK_PUMP_EXPRESS_45_SUPPORT
+	tristate "MediaTek PUMP EXPRESS 4.0 PLUS"
+	depends on MTK_CHARGER
+	help
+	  Fast charging technology supports request adjustments of source output
+	  voltage in increments as small as 50 mV to achive better charging ability.
+	  It has higher charging efficiency and has better thermal performance than
+	  PE+/PE+2.0.
+	  Set Yes to enable PE 4.5
+	  Set No to disable PE 4.5
 
 config MTK_PUMP_EXPRESS_50_SUPPORT
 	tristate "MediaTek PUMP EXPRESS 5.0"
@@ -1032,4 +1061,41 @@ config CHARGER_SURFACE
 	  Microsoft Surface devices, i.e. Surface Pro 7, Surface Laptop 3,
 	  Surface Book 3, and Surface Laptop Go.
 
+# drv add tankaikun, 20231204 start
+config CHARGER_STEP_CHARGE
+	bool "Step charge"
+	help
+	  Say Y here to enable step charge
+	  and drivers.
+
+config CHARGER_FFC_CHARGE
+	bool "ffc charge support"
+	help
+	  Say Y here to enable ffc charge
+	  and drivers.
+config FACTORY_CHARGE
+	tristate "FACTORY_CHARGE"
+	bool "Factory charge node"
+	help
+	  Say Y here to create factory charge class
+	  and drivers.
+
+config SECOND_CHARGER_SUPPORT
+	tristate "SECOND_CHARGER_SUPPORT"
+	bool "Second charger support"
+	help
+	  Say Y here to create second charge node
+	  and drivers.
+
+config PRI_CHARGE_CTRL_POLICY
+	tristate "PRI CHARGE Battery driver"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Say Y here to enable support for the cellwise PRI_CHARGE
+	  battery fuel gauge (used in the Pinebook Pro & others)
+
+	  This driver can also be built as a module. If so, the module will be
+	  called PRI_CHARGE.
+# drv add tankaikun, 20231204 end
 endif # POWER_SUPPLY

@@ -192,3 +192,90 @@ config MTK_FLASHLIGHT_DLPT
 	  the current of battary dynamicly. It will start by request
 	  and notice user by kernel notifier.
 
+#/* prize add by zhuzhengjiang for flash aw3641e 20201224 start*/
+config MTK_FLASHLIGHT_AW3641E_GPIO
+	tristate "Mediatek flashlight aw3641e gpio driver"
+	depends on MTK_FLASHLIGHT
+	default n
+	help
+	  This is flashlight aw3641e gpio driver for camera.
+
+	  Say Y here if you want a aw3641e driver IC with GPIO interface.
+	  Select this only if your board has this IC.
+
+	  Say M here if you want to compile this driver as a module.
+
+config MTK_FLASHLIGHT_AW36518
+	tristate "Mediatek flashlight aw36518 driver"
+	depends on MTK_FLASHLIGHT
+	default n
+	help
+	  This is flashlight aw36518 driver for camera.
+
+	  Say Y here if you want a aw36518 driver IC with GPIO interface.
+	  Select this only if your board has this IC.
+
+	  Say M here if you want to compile this driver as a module.
+	  
+config MTK_FLASHLIGHT_AW36515
+	tristate "Mediatek flashlight aw36515 driver"
+	depends on MTK_FLASHLIGHT
+	default n
+	help
+	  This is flashlight aw36515 driver for camera.
+
+	  Say Y here if you want a aw36515 driver IC with GPIO interface.
+	  Select this only if your board has this IC.
+
+	  Say M here if you want to compile this driver as a module.
+#/* prize add by zhuzhengjiang for flash aw3641e 20201224 end*/
+
+#drv add by lipengpeng 20240223 start 
+config MTK_FLASHLIGHT_AW36518IR
+	tristate "Mediatek flashlight aw36518ir driver"
+	depends on MTK_FLASHLIGHT
+	default n
+	help
+	  This is flashlight aw36518ir driver for camera.
+
+	  Say Y here if you want a aw36518ir driver IC with GPIO interface.
+	  Select this only if your board has this IC.
+
+	  Say M here if you want to compile this driver as a module.
+	  
+config PRIZE_CAM_IRTORCH
+	tristate "ir camera"
+	default n
+	help
+	  Say m to enable aw36518/3641/36515 driver.
+	  
+#drv add by lipengpeng 20240223 end
+
+#drv add by zhaolong 20240525 start 
+config MTK_FLASHLIGHT_OCP81373
+	tristate "Mediatek flashlight ocp81373 driver"
+	depends on MTK_FLASHLIGHT
+	default n
+	help
+	  This is flashlight ocp81373 driver for camera.
+
+	  Say Y here if you want a ocp81373 driver IC with GPIO interface.
+	  Select this only if your board has this IC.
+
+	  Say M here if you want to compile this driver as a module.
+#drv add by zhaolong 20240525 end
+
+#drv add by zhaolong 20240527 start 
+config MTK_FLASHLIGHT_IR_OCP81375
+	tristate "Mediatek flashlight_ir ocp81375 driver"
+	depends on MTK_FLASHLIGHT
+	default n
+	help
+	  This is flashlight ocp81375 driver for camera.
+
+	  Say Y here if you want a ocp81375 driver IC with GPIO interface.
+	  Select this only if your board has this IC.
+
+	  Say M here if you want to compile this driver as a module.
+#drv add by zhaolong 20240527 end
+ 

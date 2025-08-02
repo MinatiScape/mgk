@@ -5,3 +5,9 @@ config MTK_SENSORHUB
 	  If this option is set,
 	  it will support
 	  mediatek sensorhub architecture.
+	  
+# drv add by situziyin 20231209
+config PRIZE_UNDERSCREEN_ALS
+	bool "underscreen als function"
+	help
+	  underscreen als function

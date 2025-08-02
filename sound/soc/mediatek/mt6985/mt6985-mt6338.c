@@ -121,14 +121,14 @@ static int mt6985_compress_info_get(struct snd_kcontrol *kcontrol,
 					 __func__,
 					 (compr->direction) ? "Capture" : "Playback");
 				compr_info.dir = compr->direction;
-			}
-			for_each_card_prelinks(card, i, dai_link) {
-				if (i == compr_info.device) {
-					pr_debug("device = %d, dai_link->name: %s\n",
-						 i, dai_link->stream_name);
-					strscpy(compr_info.id, dai_link->stream_name,
-						sizeof(compr_info.id));
-					break;
+				for_each_card_prelinks(card, i, dai_link) {
+					if (i == compr_info.device) {
+						pr_debug("device = %d, dai_link->name: %s\n",
+							 i, dai_link->stream_name);
+						strscpy(compr_info.id, dai_link->stream_name,
+							sizeof(compr_info.id));
+						break;
+					}
 				}
 			}
 			break;
@@ -1591,6 +1591,7 @@ static struct snd_soc_dai_link mt6985_mt6338_dai_links[] = {
 	{
 		.name = "Hostless_UL2",
 		.no_pcm = 1,
+		.dpcm_playback = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(hostless_ul2),

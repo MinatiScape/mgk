@@ -2,7 +2,7 @@
 /*
  * Portions of this file
  * Copyright(c) 2016-2017 Intel Deutschland GmbH
- * Copyright (C) 2018, 2021-2022 Intel Corporation
+ * Copyright (C) 2018, 2021-2023 Intel Corporation
  */
 #ifndef __CFG80211_RDEV_OPS
 #define __CFG80211_RDEV_OPS
@@ -475,18 +475,9 @@ static inline int rdev_assoc(struct cfg80211_registered_device *rdev,
 			     struct net_device *dev,
 			     struct cfg80211_assoc_request *req)
 {
-	const struct cfg80211_bss_ies *bss_ies;
 	int ret;
 
-	/*
-	 * Note: we might trace not exactly the data that's processed,
-	 * due to races and the driver/mac80211 getting a newer copy.
-	 */
-	rcu_read_lock();
-	bss_ies = rcu_dereference(req->bss->ies);
-	trace_rdev_assoc(&rdev->wiphy, dev, req, bss_ies);
-	rcu_read_unlock();
-
+	trace_rdev_assoc(&rdev->wiphy, dev, req);
 	ret = rdev->ops->assoc(&rdev->wiphy, dev, req);
 	trace_rdev_return_int(&rdev->wiphy, ret);
 	return ret;
@@ -761,13 +752,14 @@ static inline int rdev_tx_control_port(struct cfg80211_registered_device *rdev,
 				       struct net_device *dev,
 				       const void *buf, size_t len,
 				       const u8 *dest, __be16 proto,
-				       const bool noencrypt, u64 *cookie)
+				       const bool noencrypt, int link,
+				       u64 *cookie)
 {
 	int ret;
 	trace_rdev_tx_control_port(&rdev->wiphy, dev, buf, len,
-				   dest, proto, noencrypt);
+				   dest, proto, noencrypt, link);
 	ret = rdev->ops->tx_control_port(&rdev->wiphy, dev, buf, len,
-					 dest, proto, noencrypt, cookie);
+					 dest, proto, noencrypt, link, cookie);
 	if (cookie)
 		trace_rdev_return_int_cookie(&rdev->wiphy, ret, *cookie);
 	else
@@ -1449,8 +1441,8 @@ rdev_del_intf_link(struct cfg80211_registered_device *rdev,
 		   unsigned int link_id)
 {
 	trace_rdev_del_intf_link(&rdev->wiphy, wdev, link_id);
-	if (rdev->ops->add_intf_link)
-		rdev->ops->add_intf_link(&rdev->wiphy, wdev, link_id);
+	if (rdev->ops->del_intf_link)
+		rdev->ops->del_intf_link(&rdev->wiphy, wdev, link_id);
 	trace_rdev_return_void(&rdev->wiphy);
 }
 

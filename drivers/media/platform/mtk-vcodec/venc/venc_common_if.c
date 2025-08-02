@@ -354,14 +354,16 @@ static void venc_get_free_buffers(struct venc_inst *inst,
 	fb_index = list->venc_fb_va_list[list->read_idx];
 	pResult->frm_va = (unsigned long)inst->ctx->fb_list[fb_index];
 	pResult->is_last_slc = list->is_last_slice[list->read_idx];
+	pResult->flags = list->flags[list->read_idx];
 
-	mtk_vcodec_debug(inst, "read_idx=%d bsva %lx %lld frva %lx %lld bssize %d iskey %d is_last_slc=%d",
+	mtk_vcodec_debug(inst, "read_idx=%d bsva %lx %lld frva %lx %lld bssize %d iskey %d is_last_slc=%d flags 0x%x",
 		list->read_idx,
 		pResult->bs_va, bs_index,
 		pResult->frm_va, fb_index,
 		pResult->bs_size,
 		pResult->is_key_frm,
-		pResult->is_last_slc);
+		pResult->is_last_slc,
+		pResult->flags);
 
 	list->read_idx = (list->read_idx == VENC_MAX_FB_NUM - 1U) ?
 			 0U : list->read_idx + 1U;
@@ -488,6 +490,8 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.temporal_layer_pcount = enc_prm->temporal_layer_pcount;
 		inst->vsi->config.temporal_layer_bcount = enc_prm->temporal_layer_bcount;
 		inst->vsi->config.max_ltr_num = enc_prm->max_ltr_num;
+		inst->vsi->config.cb_qp_offset = enc_prm->cb_qp_offset;
+		inst->vsi->config.cr_qp_offset = enc_prm->cr_qp_offset;
 
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,

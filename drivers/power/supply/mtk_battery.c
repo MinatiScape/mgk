@@ -197,6 +197,37 @@ bool is_recovery_mode(void)
 	return false;
 }
 
+/***************************************************************/
+/* ============================================================ */
+/* voltage to VCDT */
+/* ============================================================ */
+/* prize add by liuyong 20230302, add charger vol interface start */
+#define VBUS_VOLTAGE_FACTOR 9462
+int force_get_vbus_internal(struct mtk_battery *gm)
+{
+	int vbus = 0;
+	int ret = 0;
+
+	ret = gauge_get_property(GAUGE_PROP_VBUS_VOLTAGE,
+						&vbus);
+	if (ret < 0) {
+		bm_err("get vbus failed:%d\n", ret);
+		return ret;
+	}
+
+	vbus = (vbus * VBUS_VOLTAGE_FACTOR) / 1000;
+
+
+	bm_err("get vbus voltage:%d\n", vbus);
+
+	if (vbus < 2500)
+		return 0;
+	else
+		return vbus;
+}
+/* prize add by liuyong 20230302, add charger vol interface end */
+/***************************************************************/
+
 /* select gm->charge_power_sel to CHARGE_NORMAL ,CHARGE_R1,CHARGE_R2 */
 /* example: gm->charge_power_sel = CHARGE_NORMAL */
 bool set_charge_power_sel(enum charge_sel select)
@@ -598,8 +629,27 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
+	POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT,
 };
 
+/*  prize LiuYong 20240219, modify to full time start */
+#define TIME_TO_FULL_DCP_CURRENT 18000
+#define TIME_TO_FULL_DCP_CUR_HI_TEMP1 15000 //41 ~ 45C
+#define TIME_TO_FULL_DCP_CUR_HI_TEMP2 10000 //46 ~ 54C
+#define TIME_TO_FULL_CDP_CURRENT 12000
+#define TIME_TO_FULL_CDP_CUR_HI_TEMP2 10000 //46 ~ 54C
+#define TIME_TO_FULL_LOW_POWER_ADAPTER	10000
+#define TIME_TO_FULL_SDP_CURRENT 5000
+#define FULL_CAPACITY_SOC	100
+#define BASE_CURRENT_DCP	1000
+#define BASE_CURRENT_CDP	1000
+#define BASE_CURRENT_SDP	550
+#define BASE_CURRENT_OFFSET	2000
+#define LOW_BATT_VOLTAGE	4200
+#define LOW_POWER_ADAPTER_CHECK_COUNT	40
+#define LOW_POWER_ADAPTER_CHECK_TIME	35
+#define LOW_POWER_ADAPTER_CURRENT	12000
+/*  prize LiuYong 20240219, modify to full time end */
 static int battery_psy_get_property(struct power_supply *psy,
 	enum power_supply_property psp,
 	union power_supply_propval *val)
@@ -730,12 +780,80 @@ static int battery_psy_get_property(struct power_supply *psy,
 			int remain_mah = remain_ui * q_max_now / 10;
 			int current_now = 0;
 			int time_to_full = 0;
-
+			/* prize LiuYong 20240219, modify to full time start */
+			int calculate_capacity = 0;
+			int base_current = 0;
+			int real_current = 0;
+			/* prize LiuYong 20240219, modify to full time end */
 			ret = gauge_get_property_control(gm, GAUGE_PROP_AVERAGE_CURRENT,
 				&current_now, 1);
 
 			if (ret == -EHOSTDOWN)
 				current_now = gm->ibat;
+			/* prize LiuYong 20240219, modify to full time start */
+			ret = gauge_get_property_control(gm, GAUGE_PROP_BATTERY_CURRENT, &real_current, 1);
+			if (ret == -EHOSTDOWN)
+				real_current = gm->ibat;
+
+			if ((gm->adapter_check_count <= LOW_POWER_ADAPTER_CHECK_COUNT) &&
+					(gm->is_low_power_adapter == false) &&
+					(get_screen_on_status() == false) &&
+					(gm->vbat < LOW_BATT_VOLTAGE) &&
+					((gm->chr_type == POWER_SUPPLY_USB_TYPE_DCP) ||
+					(gm->chr_type == POWER_SUPPLY_USB_TYPE_CDP))) {
+				if ((real_current > 0) && (real_current < LOW_POWER_ADAPTER_CURRENT)) {
+					gm->adapter_check_time += 1;
+				}
+				gm->adapter_check_count += 1;
+
+				if ((gm->adapter_check_count > LOW_POWER_ADAPTER_CHECK_COUNT) && 
+					(gm->adapter_check_time > LOW_POWER_ADAPTER_CHECK_TIME)) {
+					gm->is_low_power_adapter = true;
+					bm_err("low power adapter, check count:%d, time:%d\n",
+						gm->adapter_check_count, gm->adapter_check_time);
+				}
+			}
+
+
+			if (gm->chr_type == POWER_SUPPLY_USB_TYPE_SDP) {
+				current_now = TIME_TO_FULL_SDP_CURRENT;
+				base_current = BASE_CURRENT_SDP;
+			} else if (gm->chr_type == POWER_SUPPLY_USB_TYPE_DCP) {
+				current_now = TIME_TO_FULL_DCP_CURRENT;
+				base_current = BASE_CURRENT_DCP;
+			} else if (gm->chr_type == POWER_SUPPLY_USB_TYPE_CDP) {
+				current_now = TIME_TO_FULL_CDP_CURRENT;
+				base_current = BASE_CURRENT_CDP;
+			}
+			if (gm->cur_bat_temp > 40 && gm->cur_bat_temp < 45) { //high temperature
+				if (gm->chr_type == POWER_SUPPLY_USB_TYPE_DCP) {
+					current_now = TIME_TO_FULL_DCP_CUR_HI_TEMP1;
+					base_current = BASE_CURRENT_DCP;
+				}
+			}
+			if (gm->cur_bat_temp >= 45 && gm->cur_bat_temp < 55) { //hot temperature
+				if (gm->chr_type == POWER_SUPPLY_USB_TYPE_DCP) {
+					current_now = TIME_TO_FULL_DCP_CUR_HI_TEMP2;
+					base_current = BASE_CURRENT_DCP;
+				} else if (gm->chr_type == POWER_SUPPLY_USB_TYPE_CDP) {
+					current_now = TIME_TO_FULL_CDP_CUR_HI_TEMP2;
+					base_current = BASE_CURRENT_CDP;
+				}
+			}
+			if (gm->is_low_power_adapter == true) {
+				current_now = TIME_TO_FULL_LOW_POWER_ADAPTER;
+				base_current = BASE_CURRENT_DCP;
+			}
+
+			calculate_capacity = FULL_CAPACITY_SOC - ((current_now - BASE_CURRENT_OFFSET) / base_current);
+			bm_err("current_now:%d, base_current:%d, cal_capacity:%d, chr_type:%d, temp:%d, is_screen_on,%d\n",
+				current_now, base_current, calculate_capacity, gm->chr_type, gm->cur_bat_temp, get_screen_on_status());
+
+			if (bs_data->bat_capacity >= calculate_capacity) {
+				current_now =
+				(FULL_CAPACITY_SOC - bs_data->bat_capacity) * base_current + BASE_CURRENT_OFFSET;
+			}
+			/* prize LiuYong 20240219, modify to full time end */
 
 			if (current_now != 0)
 				time_to_full = remain_mah * 3600 / current_now;
@@ -786,6 +904,9 @@ static int battery_psy_get_property(struct power_supply *psy,
 		}
 		break;
 
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT:
+		val->intval = force_get_vbus_internal(gm);
+		break;
 
 	default:
 		ret = -EINVAL;
@@ -851,8 +972,7 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 	}
 
 	if (IS_ERR_OR_NULL(chg_psy)) {
-		chg_psy = devm_power_supply_get_by_phandle(&gm->gauge->pdev->dev,
-						       "charger");
+		chg_psy = power_supply_get_by_name("primary_chg");
 		bm_err("%s retry to get chg_psy\n", __func__);
 		bs_data->chg_psy = chg_psy;
 	} else {
@@ -911,8 +1031,14 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 		cur_chr_type = prop_type.intval;
 
 		if (cur_chr_type == POWER_SUPPLY_TYPE_UNKNOWN) {
-			if (gm->chr_type != POWER_SUPPLY_TYPE_UNKNOWN)
+			/* prize LiuYong 20240219, modify to full time start */
+			if (gm->chr_type != POWER_SUPPLY_TYPE_UNKNOWN) {
 				bm_err("%s chr plug out\n");
+				gm->is_low_power_adapter = false;
+				gm->adapter_check_count = 0;
+				gm->adapter_check_time = 0;
+			}
+			/* prize LiuYong 20240219, modify to full time end */
 		} else {
 			if (gm->chr_type == POWER_SUPPLY_TYPE_UNKNOWN)
 				wakeup_fg_algo(gm, FG_INTR_CHARGER_IN);

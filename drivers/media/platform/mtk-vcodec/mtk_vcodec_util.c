@@ -95,9 +95,11 @@ void mtk_vcodec_alive_checker_deinit(struct mtk_vcodec_dev *dev)
 		}
 		if (vdec_inst_count == 0 && dev->vdec_dvfs_params.has_timer) {
 			del_timer_sync(&dev->vdec_dvfs_params.vdec_active_checker);
-			flush_workqueue(dev->check_alive_workqueue);
 			dev->vdec_dvfs_params.has_timer = 0;
+			mutex_unlock(&dev->ctx_mutex);
+			flush_workqueue(dev->check_alive_workqueue);
 			mtk_v4l2_debug(0, "[VDVFS][VDEC] deinit vdec alive checker...");
+			mutex_lock(&dev->ctx_mutex);
 		}
 	}
 #endif
@@ -308,7 +310,9 @@ void mtk_vcodec_add_ctx_list(struct mtk_vcodec_ctx *ctx)
 {
 	if (ctx != NULL) {
 		mutex_lock(&ctx->dev->ctx_mutex);
-		list_add(&ctx->list, &ctx->dev->ctx_list);
+		if (!ctx->add_list_cnt)
+			list_add(&ctx->list, &ctx->dev->ctx_list);
+		ctx->add_list_cnt++;
 		mtk_vcodec_alive_checker_init(ctx->dev);
 		mutex_unlock(&ctx->dev->ctx_mutex);
 	}
@@ -319,7 +323,9 @@ void mtk_vcodec_del_ctx_list(struct mtk_vcodec_ctx *ctx)
 {
 	if (ctx != NULL) {
 		mutex_lock(&ctx->dev->ctx_mutex);
-		list_del_init(&ctx->list);
+		ctx->add_list_cnt--;
+		if (!ctx->add_list_cnt)
+			list_del_init(&ctx->list);
 		mtk_vcodec_alive_checker_deinit(ctx->dev);
 		mutex_unlock(&ctx->dev->ctx_mutex);
 	}

@@ -4594,7 +4594,6 @@ static void DPE_EnableClock(bool En)
 		spin_lock(&(DPEInfo.SpinLockDPE));
 		switch (g_u4EnableClockCount) {
 		case 0:
-			g_u4EnableClockCount++;
 			spin_unlock(&(DPEInfo.SpinLockDPE));
 #if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
 #ifndef EP_NO_CLKMGR
@@ -4619,6 +4618,9 @@ static void DPE_EnableClock(bool En)
 			/* enable_clock(MT_CG_IMAGE_FD, "CAMERA"); */
 			enable_clock(MT_CG_IMAGE_LARB2_SMI, "CAMERA");
 #endif
+			spin_lock(&(DPEInfo.SpinLockDPE));
+			g_u4EnableClockCount++;
+			spin_unlock(&(DPEInfo.SpinLockDPE));
 			break;
 		default:
 			g_u4EnableClockCount++;
@@ -4701,6 +4703,7 @@ static inline void DPE_Reset(void)
 /*******************************************************************************
  *
  ******************************************************************************/
+#ifdef DPE_ioctl_en
 static signed int DPE_ReadReg(struct DPE_REG_IO_STRUCT *pRegIo)
 {
 	unsigned int i;
@@ -4749,9 +4752,11 @@ static signed int DPE_ReadReg(struct DPE_REG_IO_STRUCT *pRegIo)
 EXIT:
 	return Ret;
 }
+#endif
 /*******************************************************************************
  *
  ******************************************************************************/
+#ifdef DPE_ioctl_en
 static signed int DPE_WriteRegToHw(struct DPE_REG_STRUCT *pReg,
 							unsigned int Count)
 {
@@ -4786,9 +4791,11 @@ static signed int DPE_WriteRegToHw(struct DPE_REG_STRUCT *pReg,
 	/*  */
 	return Ret;
 }
+#endif
 /*******************************************************************************
  *
  ******************************************************************************/
+#ifdef DPE_ioctl_en
 static signed int DPE_WriteReg(struct DPE_REG_IO_STRUCT *pRegIo)
 {
 	signed int Ret = 0;
@@ -4840,9 +4847,11 @@ EXIT:
 	}
 	return Ret;
 }
+#endif
 /*******************************************************************************
  *
  ******************************************************************************/
+#ifdef DPE_ioctl_en
 static signed int DPE_WaitIrq(struct DPE_WAIT_IRQ_STRUCT *WaitIrq)
 {
 	signed int Ret = 0;
@@ -4992,6 +5001,7 @@ static signed int DPE_WaitIrq(struct DPE_WAIT_IRQ_STRUCT *WaitIrq)
 EXIT:
 	return Ret;
 }
+#endif
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -4999,9 +5009,11 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 {
 	signed int Ret = 0;
 	/*unsigned int pid = 0;*/
+#ifdef DPE_ioctl_en
 	static struct DPE_REG_IO_STRUCT RegIo;
 	static struct DPE_WAIT_IRQ_STRUCT IrqInfo;
 	static struct DPE_CLEAR_IRQ_STRUCT ClearIrq;
+#endif
 	static struct DPE_Config dpe_DpeConfig;
 	static struct DPE_Request dpe_DpeReq;
 	// signed int enqnum;
@@ -5058,6 +5070,8 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		}
 	case DPE_READ_REGISTER:
 		{
+			LOG_INF("Not support DPE ioctl DPE_READ_REGISTER\n");
+			#ifdef DPE_ioctl_en
 			if (copy_from_user(&RegIo, (void *)Param,
 				sizeof(struct DPE_REG_IO_STRUCT)) == 0) {
 				Ret = DPE_ReadReg(&RegIo);
@@ -5066,10 +5080,13 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				"DPE_READ_REGISTER copy_from_user failed");
 				Ret = -EFAULT;
 			}
+			#endif
 			break;
 		}
 	case DPE_WRITE_REGISTER:
 		{
+			LOG_INF("Not support DPE ioctl DPE_WRITE_REGISTER\n");
+			#ifdef DPE_ioctl_en
 			if (copy_from_user(&RegIo, (void *)Param,
 				sizeof(struct DPE_REG_IO_STRUCT)) == 0) {
 				Ret = DPE_WriteReg(&RegIo);
@@ -5078,10 +5095,13 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				"DPE_WRITE_REGISTER copy_from_user failed");
 				Ret = -EFAULT;
 			}
+			#endif
 			break;
 		}
 	case DPE_WAIT_IRQ:
 		{
+			LOG_INF("Not support DPE ioctl DPE_WAIT_IRQ\n");
+			#ifdef DPE_ioctl_en
 			if (copy_from_user(&IrqInfo, (void *)Param,
 				sizeof(struct DPE_WAIT_IRQ_STRUCT)) == 0) {
 				/*  */
@@ -5116,10 +5136,13 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				LOG_ERR("DPE_WAIT_IRQ copy_from_user failed");
 				Ret = -EFAULT;
 			}
+			#endif
 			break;
 		}
 	case DPE_CLEAR_IRQ:
 		{
+			LOG_INF("Not support DPE ioctl DPE_CLEAR_IRQ\n");
+			#ifdef DPE_ioctl_en
 			if (copy_from_user(&ClearIrq, (void *)Param,
 				sizeof(struct DPE_CLEAR_IRQ_STRUCT)) == 0) {
 				LOG_INF("DPE_CLEAR_IRQ Type(%d)",
@@ -5154,6 +5177,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				"DPE_CLEAR_IRQ copy_from_user failed\n");
 				Ret = -EFAULT;
 			}
+			#endif
 			break;
 		}
 	case DPE_ENQNUE_NUM:
@@ -5475,7 +5499,15 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					dpe_deque_request_isp7s(&dpe_reqs_dvp,
 					&kDpeReq.m_ReqNum, &kDpeReq);
 
-
+				if (kDpeReq.m_ReqNum >= 3) {
+					LOG_ERR("kDpeReq m_ReqNum is too large");
+					spin_unlock_irqrestore(
+					&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
+							       flags);
+					mutex_unlock(&gDVSMutex);
+					Ret = -EFAULT;
+					goto EXIT;
+				}
 
 				dequeNum = kDpeReq.m_ReqNum;
 				dpe_DpeReq.m_ReqNum = dequeNum;
@@ -6190,6 +6222,16 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 	Ret = copy_from_user(&ureq, (void __user *)p->m.userptr, sizeof(ureq));
 
+	if (Ret != 0) {
+		LOG_ERR("[%s]copy from user fail\n",__func__);
+		goto EXIT;
+	}
+
+	if (ureq.m_ReqNum >= 3) {
+		LOG_ERR("[%s]m_ReqNum = %d\n",__func__,ureq.m_ReqNum);
+		goto EXIT;
+	}
+
 	Ret = copy_from_user(&cfgs[0], (void __user *)ureq.m_pDpeConfig,
 				ureq.m_ReqNum * sizeof(struct DPE_Config));
 
@@ -6221,6 +6263,13 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			Ret = -EFAULT;
 			goto EXIT;
 		}
+
+		if (kreq.m_ReqNum >= 3) {
+			LOG_ERR("kreq m_ReqNum is too large");
+			Ret = -EFAULT;
+			goto EXIT;
+		}
+
 		//For Register Dump
 		LOG_INF("[vidioc dqbuf] b Dpe_RegDump = %d\n",
 		cfgs[0].Dpe_RegDump);

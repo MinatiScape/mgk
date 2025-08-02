@@ -28,6 +28,7 @@ main2af-y  += common/ak7371af/AK7371AF.o
 main2af-y  += common/ak7374af/AK7374AF.o
 main2af-y  += common/bu64748af/bu64748_function.o
 main2af-y  += common/bu64748af/bu64748af.o
+main2af-y  += common/dw9714af/DW9714AF.o
 main2af-y  += common/lc898212xdaf_f/LC89821x_STMV.o
 main2af-y  += common/lc898212xdaf_f/LC898212XDAF_F.o
 main2af-y  += common/lc898217af/LC898217AF.o
@@ -37,3 +38,8 @@ main2af-y  += common/lc898217afc/LC898217AFC.o
 main2af-y  += common/dw9718taf/DW9718TAF.o
 main2af-y  += common/gt9772af/GT9772AF.o
 main2af-y  += common/gt9772baf/GT9772BAF.o
+#prize add by lipengpeng 20210511 start 
+
+main2af-y  += common/dw9800waf/DW9800WAF.o
+
+#prize add by lipengpeng 20210511 start

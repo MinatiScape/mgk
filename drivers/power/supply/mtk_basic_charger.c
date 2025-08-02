@@ -130,6 +130,9 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	bool is_basic = false;
 	u32 ichg1_min = 0, aicr1_min = 0;
 	int ret;
+	/* prize add by liuyong, modify for jeita current 20230323 start */
+	int vbat = 0;
+	/* prize add by liuyong, modify for jeita current 20230323 end */
 
 	select_cv(info);
 
@@ -247,18 +250,71 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		}
 	}
 
+/* prize add by liuyong, modify for jeita current 20230323 start */
 	if (info->enable_sw_jeita) {
 		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
 			&& info->chr_type == POWER_SUPPLY_TYPE_USB)
 			chr_debug("USBIF & STAND_HOST skip current check\n");
-		else {
+		else if ((info->chr_type == POWER_SUPPLY_TYPE_USB_DCP) ||
+					(info->chr_type == POWER_SUPPLY_TYPE_USB_CDP) ||
+					(info->usb_type == POWER_SUPPLY_USB_TYPE_DCP)) {
 			if (info->sw_jeita.sm == TEMP_T0_TO_T1) {
-				pdata->input_current_limit = 500000;
-				pdata->charging_current_limit = 350000;
+				pdata->input_current_limit = info->data.jeita_temp_t0_to_t1_input_current;
+				pdata->charging_current_limit = info->data.jeita_temp_t0_to_t1_charging_current;
+				if (vbat >= 4250)
+					 pdata->charging_current_limit = info->data.jeita_temp_t0_to_t1_charging_current - 500000;
+			} else if (info->sw_jeita.sm == TEMP_T1_TO_T2) {
+				pdata->input_current_limit = info->data.jeita_temp_t1_to_t2_input_current;
+				pdata->charging_current_limit = info->data.jeita_temp_t1_to_t2_charging_current;
+				// temp too low, charging current reduce 500mA. //keep same as 't0_to_t1_charging_current'
+				if (info->battery_temp < info->data.temp_t1_thres_plus_x_degree) {
+					pdata->charging_current_limit = info->data.jeita_temp_t1_to_t2_charging_current - 500000;
+				}
+			} else if (info->sw_jeita.sm == TEMP_T2_TO_T3) {
+				pdata->input_current_limit = info->data.jeita_temp_t2_to_t3_input_current;
+				pdata->charging_current_limit = info->data.jeita_temp_t2_to_t3_charging_current;
+				// temp too high, charging current reduce 500mA.
+				if (info->battery_temp >= info->data.temp_t3_thres_minus_x_degree - 2) { //T > 40℃
+					pdata->charging_current_limit = info->data.jeita_temp_t2_to_t3_charging_current - 500000;
+				}
+			} else if (info->sw_jeita.sm == TEMP_T3_TO_T4) {
+				pdata->input_current_limit = info->data.jeita_temp_t3_to_t4_input_current;
+				pdata->charging_current_limit = info->data.jeita_temp_t3_to_t4_charging_current;
+				// temp too high, charging current reduce 500mA.
+				if (info->battery_temp >= info->data.temp_t4_thres_minus_x_degree) {
+					pdata->charging_current_limit = info->data.jeita_temp_t3_to_t4_charging_current - 500000;
+				}
 			}
+			if (info->chr_type == POWER_SUPPLY_TYPE_USB_CDP) {
+				if (pdata->input_current_limit > info->data.charging_host_charger_current) {
+					pdata->input_current_limit = info->data.charging_host_charger_current;
+				}
+				if (pdata->charging_current_limit > info->data.charging_host_charger_current) {
+					pdata->charging_current_limit = info->data.charging_host_charger_current;
+				}
+			}
+			chr_err("sw_jeita.sm = %d,input_current_limit = %d, charging_current_limit = %d\n",
+				info->sw_jeita.sm, pdata->input_current_limit, pdata->charging_current_limit);
 		}
 	}
-
+/* prize LiuYong, modify for charging current config, 20220303 -start*/
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	if (info->is_screen_on) {
+		if (pdata->charging_current_limit > info->data.temp_screen_on_charging_current) {
+			pdata->charging_current_limit = info->data.temp_screen_on_charging_current;
+		}
+		if (pdata->input_current_limit > info->data.temp_screen_on_input_current) {
+			pdata->input_current_limit = info->data.temp_screen_on_input_current;
+		}
+		if (info->battery_temp >= info->data.temp_t4_thres_minus_x_degree) { //T > 50℃
+			pdata->input_current_limit = info->data.temp_screen_on_input_current - 300000;
+			pdata->charging_current_limit = info->data.temp_screen_on_charging_current - 500000;
+		}
+		chr_err("PRIZE, screen on:%d, input_current_limit:%d, charging_current_limit:%d\n",
+			info->is_screen_on, pdata->input_current_limit, pdata->charging_current_limit);
+	}
+#endif
+/* prize add by liuyong, modify for screen on charging 20230315 end */
 	sc_select_charging_current(info, pdata);
 
 	if (pdata->thermal_charging_current_limit != -1) {

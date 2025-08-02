@@ -19,34 +19,42 @@
 #include <linux/workqueue.h>
 #include <sound/jack.h>
 #include <sound/soc.h>
+#include <linux/init.h>
+#include <linux/notifier.h>
 
 #include "mt6377-accdet.h"
 #include "mt6377.h"
 
+/*add by xwg for sar detect accdet plug in/out start*/
+extern struct blocking_notifier_head accdet_notifier_chain;
+/*add by xwg for sar detect accdet plug in/out end*/
+/* prize add by zhanghuimin for SN339D-1757 start */
+extern struct blocking_notifier_head ili_earphone_notifier_chain;
+/* prize add by zhanghuimin for SN339D-1757 end */
 /* global variables definition */
 #define REGISTER_VAL(x)	(x - 1)
 #define HAS_CAP(_c, _x)	(((_c) & (_x)) == (_x))
-#define ACCDET_PMIC_EINT_IRQ		BIT(0)
-#define ACCDET_AP_GPIO_EINT		BIT(1)
+#define ACCDET_PMIC_EINT_IRQ		  BIT(0)
+#define ACCDET_AP_GPIO_EINT		  BIT(1)
 
-#define ACCDET_PMIC_EINT0		BIT(2)
-#define ACCDET_PMIC_EINT1		BIT(3)
-#define ACCDET_PMIC_BI_EINT		BIT(4)
+#define ACCDET_PMIC_EINT0		  BIT(2)
+#define ACCDET_PMIC_EINT1		  BIT(3)
+#define ACCDET_PMIC_BI_EINT		  BIT(4)
 
-#define ACCDET_PMIC_GPIO_TRIG_EINT	BIT(5)
-#define ACCDET_PMIC_INVERTER_TRIG_EINT	BIT(6)
-#define ACCDET_PMIC_RSV_EINT		BIT(7)
+#define ACCDET_PMIC_GPIO_TRIG_EINT	  BIT(5)
+#define ACCDET_PMIC_INVERTER_TRIG_EINT	  BIT(6)
+#define ACCDET_PMIC_NO_INVERTER_TRIG_EINT BIT(7)
 
-#define ACCDET_THREE_KEY		BIT(8)
-#define ACCDET_FOUR_KEY			BIT(9)
-#define ACCDET_TRI_KEY_CDD		BIT(10)
-#define ACCDET_RSV_KEY			BIT(11)
+#define ACCDET_THREE_KEY		  BIT(8)
+#define ACCDET_FOUR_KEY			  BIT(9)
+#define ACCDET_TRI_KEY_CDD		  BIT(10)
+#define ACCDET_RSV_KEY			  BIT(11)
 
-#define ACCDET_ANALOG_FASTDISCHARGE	BIT(12)
-#define ACCDET_DIGITAL_FASTDISCHARGE	BIT(13)
-#define ACCDET_AD_FASTDISCHRAGE		BIT(14)
+#define ACCDET_ANALOG_FASTDISCHARGE	  BIT(12)
+#define ACCDET_DIGITAL_FASTDISCHARGE	  BIT(13)
+#define ACCDET_AD_FASTDISCHRAGE		  BIT(14)
 
-#define ACCDET_MOISTURE_DETECTED	BIT(15)
+#define ACCDET_MOISTURE_DETECTED	  BIT(15)
 
 #define RET_LT_5K			(-1)
 #define RET_GT_5K			(0)
@@ -714,71 +722,73 @@ static void accdet_get_efuse(void)
 	unsigned short efuseval = 0;
 	int ret = 0;
 	int tmp_div;
-
 	/* accdet offset efuse:
 	 * this efuse must divided by 2
 	 */
-	ret = nvmem_device_read(accdet->accdet_efuse, 67*2, 2, &efuseval);
+	ret = nvmem_device_read(accdet->accdet_efuse, 113*2, 2, &efuseval);
 	accdet->auxadc_offset = (int)((efuseval >> 8) & 0xFF);
 	if (accdet->auxadc_offset > 128)
 		accdet->auxadc_offset -= 256;
 	accdet->auxadc_offset = (accdet->auxadc_offset >> 1);
-/* all of moisture_vdd/moisture_offset0/eint is  2'complement,
- * we need to transfer it
- */
-	/* moisture vdd efuse offset */
-	ret = nvmem_device_read(accdet->accdet_efuse, 71*2, 2, &efuseval);
-	accdet->moisture_vdd_offset =
-		(int)(efuseval & ACCDET_CALI_MASK0);
-	if (accdet->moisture_vdd_offset > 128)
-		accdet->moisture_vdd_offset -= 256;
-	pr_info("%s moisture_vdd efuse=0x%x, moisture_vdd_offset=%d mv\n",
-		__func__, efuseval, accdet->moisture_vdd_offset);
-
-	/* moisture offset */
-	ret = nvmem_device_read(accdet->accdet_efuse, 71*2, 2, &efuseval);
-	accdet->moisture_offset = (int)((efuseval >> 8) & ACCDET_CALI_MASK0);
-	if (accdet->moisture_offset > 128)
-		accdet->moisture_offset -= 256;
-	pr_info("%s moisture_efuse efuse=0x%x,moisture_offset=%d mv\n",
-		__func__, efuseval, accdet->moisture_offset);
-
-	if (accdet_dts.moisture_use_ext_res == 0x0) {
-		/* moisture eint efuse offset */
-		ret = nvmem_device_read(accdet->accdet_efuse,
-				70*2, 2, &efuseval);
-		accdet->moisture_eint_offset = (int)(efuseval);
-		pr_info("%s moisture_eint0/1 efuse=0x%x\n",
-			__func__, efuseval);
-
-
-		if (accdet->moisture_eint_offset > 32768)
-			accdet->moisture_eint_offset -= 65536;
-		pr_info("%s moisture_eint_offset=%d ohm\n", __func__,
-			accdet->moisture_eint_offset);
-
-		accdet->moisture_vm = (2800 + accdet->moisture_vdd_offset);
-		accdet->moisture_vm *=
-			(accdet->water_r + accdet->moisture_int_r);
-		tmp_div = accdet->water_r + accdet->moisture_int_r +
-			8 * accdet->moisture_eint_offset + 450000;
-		accdet->moisture_vm = accdet->moisture_vm / tmp_div;
-		accdet->moisture_vm =
-			accdet->moisture_vm + accdet->moisture_offset / 2;
-		pr_info("%s internal moisture_vm=%d mv\n", __func__,
-			accdet->moisture_vm);
-	} else if (accdet_dts.moisture_use_ext_res == 0x1) {
-		accdet->moisture_vm = (2800 + accdet->moisture_vdd_offset);
-		accdet->moisture_vm = accdet->moisture_vm * accdet->water_r;
-		accdet->moisture_vm /=
-			(accdet->water_r + accdet->moisture_ext_r);
-		accdet->moisture_vm +=
-			(accdet->moisture_offset >> 1);
-		pr_info("%s external moisture_vm=%d mv\n", __func__,
-			accdet->moisture_vm);
-	}
-	pr_info("%s efuse=0x%x,auxadc_val=%dmv\n", __func__, efuseval,
+	pr_info("%s RG_ACCDET_OFFSET_CAL efuse=0x%x,auxadc_val=%dmv\n", __func__, efuseval,
 		accdet->auxadc_offset);
+
+	if (accdet_dts.moisture_detect_mode <= 3) {
+		/* this part is for MOISTURE2.0 not support in MT6377*/
+		/* all of moisture_vdd/moisture_offset0/eint is  2'complement,
+		 * we need to transfer it
+		 */
+		/* moisture vdd efuse offset */
+		ret = nvmem_device_read(accdet->accdet_efuse, 71*2, 2, &efuseval);
+		accdet->moisture_vdd_offset =
+			(int)(efuseval & ACCDET_CALI_MASK0);
+		if (accdet->moisture_vdd_offset > 128)
+			accdet->moisture_vdd_offset -= 256;
+		pr_info("%s moisture_vdd efuse=0x%x, moisture_vdd_offset=%d mv\n",
+			__func__, efuseval, accdet->moisture_vdd_offset);
+
+		/* moisture offset */
+		ret = nvmem_device_read(accdet->accdet_efuse, 71*2, 2, &efuseval);
+		accdet->moisture_offset = (int)((efuseval >> 8) & ACCDET_CALI_MASK0);
+		if (accdet->moisture_offset > 128)
+			accdet->moisture_offset -= 256;
+		pr_info("%s moisture_efuse efuse=0x%x,moisture_offset=%d mv\n",
+			__func__, efuseval, accdet->moisture_offset);
+
+		if (accdet_dts.moisture_use_ext_res == 0x0) {
+		/* moisture eint efuse offset */
+			ret = nvmem_device_read(accdet->accdet_efuse,
+				70*2, 2, &efuseval);
+			accdet->moisture_eint_offset = (int)(efuseval);
+			pr_info("%s moisture_eint0/1 efuse=0x%x\n",
+				__func__, efuseval);
+
+			if (accdet->moisture_eint_offset > 32768)
+				accdet->moisture_eint_offset -= 65536;
+			pr_info("%s moisture_eint_offset=%d ohm\n", __func__,
+				accdet->moisture_eint_offset);
+
+			accdet->moisture_vm = (2800 + accdet->moisture_vdd_offset);
+			accdet->moisture_vm *=
+				(accdet->water_r + accdet->moisture_int_r);
+			tmp_div = accdet->water_r + accdet->moisture_int_r +
+				8 * accdet->moisture_eint_offset + 450000;
+			accdet->moisture_vm = accdet->moisture_vm / tmp_div;
+			accdet->moisture_vm =
+				accdet->moisture_vm + accdet->moisture_offset / 2;
+			pr_info("%s internal moisture_vm=%d mv\n", __func__,
+				accdet->moisture_vm);
+		} else if (accdet_dts.moisture_use_ext_res == 0x1) {
+			accdet->moisture_vm = (2800 + accdet->moisture_vdd_offset);
+			accdet->moisture_vm = accdet->moisture_vm * accdet->water_r;
+			accdet->moisture_vm /=
+				(accdet->water_r + accdet->moisture_ext_r);
+			accdet->moisture_vm +=
+				(accdet->moisture_offset >> 1);
+			pr_info("%s external moisture_vm=%d mv\n", __func__,
+				accdet->moisture_vm);
+		}
+	}
 }
 
 static void accdet_get_efuse_4key(void)
@@ -795,11 +805,11 @@ static void accdet_get_efuse_4key(void)
 	 * BC efuse: key-B Voltage:DB--BC;
 	 * key-C Voltage: BC--600;
 	 */
-	ret = nvmem_device_read(accdet->accdet_efuse, 68*2, 2, &tmp_val);
+	ret = nvmem_device_read(accdet->accdet_efuse, 114*2, 2, &tmp_val);
 	tmp_8bit = (tmp_val >> 8) & ACCDET_CALI_MASK0;
 	accdet_dts.four_key.mid = tmp_8bit << 2;
 
-	ret = nvmem_device_read(accdet->accdet_efuse, 69*2, 2, &tmp_val);
+	ret = nvmem_device_read(accdet->accdet_efuse, 115*2, 2, &tmp_val);
 	tmp_8bit = tmp_val & ACCDET_CALI_MASK0;
 	accdet_dts.four_key.voice = tmp_8bit << 2;
 
@@ -894,8 +904,16 @@ static void send_status_event(u32 cable_type, u32 status)
 			snd_soc_jack_report(&accdet->jack, report,
 					SND_JACK_MICROPHONE);
 		}
-		pr_info("accdet HEADPHONE(3-pole) %s\n",
+		pr_err("accdet HEADPHONE(3-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+
+		/*add by xwg for sar detect accdet plug in/out start*/
+		blocking_notifier_call_chain(&accdet_notifier_chain, status, NULL);
+		/*add by xwg for sar detect accdet plug in/out end*/
+
+		/* prize add by zhanghuimin for SN339D-1757 start */
+		blocking_notifier_call_chain(&ili_earphone_notifier_chain, status, NULL);
+		/* prize add by zhanghuimin for SN339D-1757 end */
 		break;
 	case HEADSET_MIC:
 		/* when plug 4-pole out, 3-pole plug out should also be
@@ -913,8 +931,15 @@ static void send_status_event(u32 cable_type, u32 status)
 
 		snd_soc_jack_report(&accdet->jack, report,
 				SND_JACK_MICROPHONE);
-		pr_info("accdet MICROPHONE(4-pole) %s\n",
+		pr_err("accdet MICROPHONE(4-pole) %s\n",
 			status ? "PlugIn" : "PlugOut");
+
+		/*add by xwg for sar detect accdet plug in/out start*/
+		blocking_notifier_call_chain(&accdet_notifier_chain, status, NULL);
+		/*add by xwg for sar detect accdet plug in/out end*/
+		/* prize add by zhanghuimin for SN339D-1757 start */
+		blocking_notifier_call_chain(&ili_earphone_notifier_chain, status, NULL);
+		/* prize add by zhanghuimin for SN339D-1757 end */
 		/* when press key for a long time then plug in
 		 * even recoginized as 4-pole
 		 * disable micbias timer still timeout after 6s
@@ -1073,9 +1098,12 @@ static u32 adjust_eint_analog_setting(void)
 	if (accdet_dts.eint_detect_mode == 0x4) {
 		if (HAS_CAP(accdet->data->caps,
 				ACCDET_PMIC_EINT0)) {
-			/* enable RG_EINT0CONFIGACCDET */
-			accdet_update_bit(RG_EINT0CONFIGACCDET_ADDR,
-				RG_EINT0CONFIGACCDET_SFT);
+			if (!HAS_CAP(accdet->data->caps,
+			ACCDET_PMIC_NO_INVERTER_TRIG_EINT)) {
+				/* enable RG_EINT0CONFIGACCDET */
+				accdet_update_bit(RG_EINT0CONFIGACCDET_ADDR,
+					RG_EINT0CONFIGACCDET_SFT);
+			}
 		} else if (HAS_CAP(accdet->data->caps,
 				ACCDET_PMIC_EINT1)) {
 			/* enable RG_EINT1CONFIGACCDET */
@@ -1392,7 +1420,7 @@ static void recover_eint_analog_setting(void)
 			accdet_clear_bit(RG_EINT1CONFIGACCDET_ADDR,
 				RG_EINT1CONFIGACCDET_SFT);
 		}
-		accdet_clear_bit(RG_EINT0HIRENB_ADDR,
+		accdet_update_bit(RG_EINT0HIRENB_ADDR,
 			RG_EINT0HIRENB_SFT);
 	}
 }
@@ -2054,8 +2082,8 @@ static u32 config_moisture_detect_2_1(void)
 	 */
 
 	/* EINTVTH1K/5K/10K efuse */
-	ret = nvmem_device_read(accdet->accdet_efuse, 76*2, 2, &efuseval);
-	eintvth = (int)(efuseval & ACCDET_CALI_MASK0);
+	ret = nvmem_device_read(accdet->accdet_efuse, 119*2, 2, &efuseval);
+	eintvth = (int)((efuseval >> 8) & ACCDET_CALI_MASK0);
 	pr_info("%s moisture_eint0 efuse=0x%x,eintvth=0x%x\n",
 		__func__, efuseval, eintvth);
 
@@ -2073,23 +2101,23 @@ static u32 config_moisture_detect_2_1_1(void)
 		accdet_dts.moisture_comp_vth);
 
 	/* EINTVTH1K/5K/10K efuse */
-	ret = nvmem_device_read(accdet->accdet_efuse, 77*2, 2, &efuseval);
-	eintvth = (int)(efuseval & ACCDET_CALI_MASK0);
-	pr_info("%s moisture_eint2 - 1231 efuse=0x%x,eintvth=0x%x\n",
+	ret = nvmem_device_read(accdet->accdet_efuse, 120*2, 2, &efuseval);
+	eintvth = (int)((efuseval >> 8) & ACCDET_CALI_MASK0);
+	pr_info("%s moisture_eint2 - 1920 efuse=0x%x,eintvth=0x%x\n",
 		__func__, efuseval, eintvth);
 
 	/* set moisture reference voltage MVTH */
 	if (eintvth == 0) {
 		pr_info("accdet efuse not read\n");
 		/* This is hardcode for no efuse chip */
-		pr_info("%s 0x2525 = 0x83\n", __func__);
-		accdet_write(0x2525, 0x83);
+		pr_info("%s ACCDET_MVTHEN_ADDR = 0x83\n", __func__);
+		accdet_write(ACCDET_MVTHEN_ADDR, 0x83);
 		/* This is adjust for vref2 config*/
-		accdet_write(0x2526, 0x6);
+		accdet_write(ACCDET_MVTH2SEL_ADDR, 0x6);
 	} else {
 		/* TODO check detail with DE */
-		accdet_update_bits(0x2525, 7, 0x1, ((eintvth >> 5) & 0x1));
-		accdet_update_bits(0x2526, 0, 0xf, (eintvth & 0xf));
+		accdet_update_bits(ACCDET_MVTHEN_ADDR, 7, 0x1, ((eintvth >> 5) & 0x1));
+		accdet_update_bits(ACCDET_MVTH2SEL_ADDR, 0, 0xf, (eintvth & 0xf));
 	}
 	return 0;
 }
@@ -2184,6 +2212,7 @@ static inline int ext_eint_setup(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct device_node *node = pdev->dev.of_node;
+	struct irq_data *irq_data;
 
 	if (!node)
 		return -ENODEV;
@@ -2219,7 +2248,11 @@ static inline int ext_eint_setup(struct platform_device *pdev)
 		return accdet->gpioirq;
 	}
 
-	accdet->accdet_eint_type = irqd_get_trigger_type(irq_get_irq_data(accdet->gpioirq));
+	irq_data = irq_get_irq_data(accdet->gpioirq);
+	if (!irq_data)
+		dev_info(&pdev->dev, "irq_data is null\n");
+	else
+		accdet->accdet_eint_type = irqd_get_trigger_type(irq_data);
 
 	/* Enable interrupt when acccet init done */
 	irq_set_status_flags(accdet->gpioirq, IRQ_NOAUTOEN);
@@ -2373,6 +2406,8 @@ static int accdet_get_dts_data(void)
 		accdet->data->caps |= ACCDET_PMIC_GPIO_TRIG_EINT;
 	else if (tmp == 1)
 		accdet->data->caps |= ACCDET_PMIC_INVERTER_TRIG_EINT;
+	else if (tmp == 2)
+		accdet->data->caps |= ACCDET_PMIC_NO_INVERTER_TRIG_EINT;
 
 	ret = of_property_read_u32(node,
 			"headset-key-mode", &tmp);
@@ -2447,10 +2482,14 @@ static void config_digital_init_by_mode(void)
 		(accdet_dts.pwm_deb.eint_pwm_width << 4 |
 		accdet_dts.pwm_deb.eint_pwm_thresh));
 	/* DA signal stable */
-	if (HAS_CAP(accdet->data->caps,
-			ACCDET_PMIC_EINT0)) {
-		accdet_write(ACCDET_DA_STABLE_ADDR,
+	if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_EINT0)) {
+		if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_NO_INVERTER_TRIG_EINT)) {
+			accdet_write(ACCDET_DA_STABLE_ADDR,
+				ACCDET_BYPASS_EINT0_CEN_STABLE);
+		} else {
+			accdet_write(ACCDET_DA_STABLE_ADDR,
 				ACCDET_EINT0_STABLE_VAL);
+		}
 	} else if (HAS_CAP(accdet->data->caps,
 			ACCDET_PMIC_EINT1)) {
 		accdet_write(ACCDET_DA_STABLE_ADDR,
@@ -2704,6 +2743,9 @@ static void accdet_init_once(void)
 	accdet_update_bit(RG_ACCDET_RST_ADDR, RG_ACCDET_RST_SFT);
 	accdet_clear_bit(RG_ACCDET_RST_ADDR, RG_ACCDET_RST_SFT);
 
+	/* set internal pullup resistor to 500k*/
+	accdet_update_bit(RG_EINT0HIRENB_ADDR, RG_EINT0HIRENB_SFT);
+
 	/* NOTE: mt6377 doesn't have HV setting */
 	/* clear micbias1 voltage */
 	accdet_clear_bits(RG_AUDMICBIAS1VREF_ADDR,
@@ -2790,6 +2832,12 @@ static void accdet_init_once(void)
 		accdet_write(ACCDET_DA_STABLE_ADDR, 0x1);
 		/* disable eint/inverter/sw_en */
 		accdet_write(ACCDET_SW_EN_ADDR, 0x0);
+	}
+	if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_NO_INVERTER_TRIG_EINT)) {
+		/* disable inverter HWMODE */
+		accdet_write(ACCDET_EINT_HWMODE_EN_ADDR, 0x0);
+		/* sw enable EINT0 */
+		accdet_write(ACCDET_EINT0_INVERTER_SW_EN_ADDR, 0x4);
 	}
 }
 

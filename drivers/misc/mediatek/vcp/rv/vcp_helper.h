@@ -98,6 +98,7 @@ enum VCP_IOMMU_DEV {
 	VCP_IOMMU_WORK_256MB2 = 3,
 	VCP_IOMMU_UBE_LAT = 4,
 	VCP_IOMMU_UBE_CORE = 5,
+	VCP_IOMMU_SEC = 6,
 	VCP_IOMMU_DEV_NUM,
 };
 
@@ -120,6 +121,7 @@ struct vcp_regs {
 	void __iomem *cfg_sec;
 	void __iomem *cfg_mmu;
 	void __iomem *bus_tracker;
+	void __iomem *spm;
 	int irq0;
 	int irq1;
 	unsigned int total_tcmsize;

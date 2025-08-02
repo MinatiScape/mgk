@@ -817,9 +817,6 @@ static int update_scen_param(struct mtk_cam_ctx *ctx,
 			config_param->exp_order = MTKCAM_IPI_ORDER_NE_SE;
 			break;
 		}
-	} else if (mtk_cam_scen_is_dcg(scen)) {
-		config_param->sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR;
-		config_param->exp_order = MTKCAM_IPI_ORDER_NE_SE;
 	} else {
 		config_param->sw_feature = MTKCAM_IPI_SW_FEATURE_NORMAL;
 		config_param->exp_order = MTKCAM_IPI_ORDER_NE_SE;
@@ -1143,6 +1140,10 @@ STOP_SCAN:
 				del_job, vaddr);
 
 		spin_unlock(&req->done_status_lock);
+
+		if (is_raw_subdev(pipe_id) &&
+		    !(s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT))
+			mtk_cam_read_hdr_timestamp(ctx, s_data);
 
 		if (mtk_cam_scen_is_mstream_2exp_types(scen))
 			s_data_mstream = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
@@ -2233,6 +2234,10 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 	}
 
 	switch (s_data->feature.switch_feature_type) {
+	case EXPOSURE_CHANGE_NONE:
+		s_data->frame_params.raw_param.previous_exposure_num =
+				s_data->frame_params.raw_param.exposure_num;
+		break;
 	case EXPOSURE_CHANGE_3_to_2:
 	case EXPOSURE_CHANGE_3_to_1:
 		s_data->frame_params.raw_param.previous_exposure_num = 3;
@@ -2750,25 +2755,6 @@ static int mtk_cam_calc_pending_res(struct mtk_cam_device *cam,
 	return 0;
 }
 
-static bool mtk_cam_is_bit_depth_changed(struct mtk_raw_pipeline *raw_pipe,
-				   struct mtk_cam_request_stream_data *s_data)
-{
-	unsigned int sensor_ipi_fmt = 0;
-	unsigned int sensor_ipi_fmt_prev = 0;
-
-	// NOTE: only pad fmt of seamless request is guaranteed to be updated
-	if (!raw_pipe->sensor_mode_update)
-		return false;
-
-	sensor_ipi_fmt =
-		mtk_cam_get_sensor_fmt(s_data->pad_fmt[MTK_RAW_SINK].format.code);
-	sensor_ipi_fmt_prev =
-		mtk_cam_get_sensor_fmt(raw_pipe->cfg[MTK_RAW_SINK].mbus_fmt.code);
-
-	return (mtk_cam_get_pixel_bits(sensor_ipi_fmt) !=
-		mtk_cam_get_pixel_bits(sensor_ipi_fmt_prev));
-}
-
 static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 			       struct mtk_cam_request *req)
 {
@@ -2802,9 +2788,7 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 					w = raw_pipeline->cfg[MTK_RAW_SINK].mbus_fmt.width;
 					h = raw_pipeline->cfg[MTK_RAW_SINK].mbus_fmt.height;
 					if (w != stream_data->pad_fmt[pad].format.width ||
-						h != stream_data->pad_fmt[pad].format.height ||
-						mtk_cam_is_bit_depth_changed(
-							raw_pipeline, stream_data)) {
+						h != stream_data->pad_fmt[pad].format.height) {
 						dev_info(cam->dev,
 							 "%s:%s:pipe(%d):seq(%d):sink fmt change: (%d, %d) --> (%d, %d)\n",
 							 __func__, req->req.debug_str, pipe_id,
@@ -2817,7 +2801,7 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 					}
 
 					if (stream_data->flags &
-						MTK_CAM_REQ_SEAMLESS_UPDATE_SENSOR_FMT) {
+						MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1) {
 						stream_data->seninf_fmt.format =
 							stream_data->pad_fmt[pad].format;
 						dev_info(cam->dev,
@@ -2984,7 +2968,6 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 	int buf_size;
 	int buf_require;
 	int ret = 0;
-	bool bpp_changed = false;
 
 	raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
 	req = mtk_cam_s_data_get_req(s_data);
@@ -2993,7 +2976,6 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 	raw_pipe->sensor_mode_update = 0;
 	raw_pipe->req_res_calc  = false;
 	scen_pre = raw_pipe->user_res.raw_res.scen;
-
 	mtk_cam_req_ctrl_setup(raw_pipe, req);
 
 	/* for stagger 1exp config */
@@ -3055,16 +3037,15 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 			__func__, raw_pipe->subdev.name, debug_str);
 	}
 
-	bpp_changed = mtk_cam_is_bit_depth_changed(raw_pipe, s_data);
-
 	s_data->feature.switch_feature_type =
-		mtk_cam_get_feature_switch(raw_pipe, &scen_pre, bpp_changed);
+		mtk_cam_get_feature_switch(raw_pipe, &scen_pre);
 	s_data->feature.prev_scen = scen_pre;
 	atomic_set(&s_data->first_setting_check, 0);
-
-	s_data->feature.switch_prev_frame_done = 0;
-	s_data->feature.switch_curr_setting_done = 0;
-	s_data->feature.switch_done = 0;
+	if (s_data->feature.switch_feature_type) {
+		s_data->feature.switch_prev_frame_done = 0;
+		s_data->feature.switch_curr_setting_done = 0;
+		s_data->feature.switch_done = 0;
+	}
 
 	dev_dbg(raw_pipe->subdev.v4l2_dev->dev,
 		"%s:%s:%s:raw_scen(%s), prev_scen(%s), switch_feature_type(0x%0x), sensor_mode_update(%d), res_calc(%d)\n",
@@ -3075,42 +3056,15 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 		raw_pipe->sensor_mode_update,
 		raw_pipe->req_res_calc);
 
-	if (s_data->feature.switch_feature_type == SUBSPL_MODE_CHANGE)
+	/* change sensor mode for non-stagger seamless switch scenarios */
+	if (raw_pipe->sensor_mode_update &&
+	    s_data->feature.switch_feature_type == EXPOSURE_CHANGE_NONE)
+		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1;
+	else if (s_data->feature.switch_feature_type == SUBSPL_MODE_CHANGE)
 		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SUBSPL_MODE_UDPATE;
-
-	if (raw_pipe->sensor_mode_update) {
-		if (bpp_changed) {
-			dev_info(raw_pipe->subdev.v4l2_dev->dev, "bit depth changed");
-			s_data->flags |= MTK_CAM_REQ_SEAMLESS_RESET_CAMMUX;
-			s_data->flags |= MTK_CAM_REQ_SEAMLESS_UPDATE_SENSOR_FMT;
-		}
-
-		if (s_data->feature.switch_feature_type == EXPOSURE_CHANGE_NONE)
-			s_data->flags |= MTK_CAM_REQ_SEAMLESS_UPDATE_SENSOR_FMT;
-
-		if (!mtk_cam_feature_change_is_mstream(s_data->feature.switch_feature_type))
-			s_data->flags |= MTK_CAM_REQ_SEAMLESS_SKIP_SENSOR_WORKER;
-
-		if (s_data->feature.prev_scen.scen.normal.stagger_type == MTK_CAM_STAGGER_NONE &&
-			s_data->feature.scen->scen.normal.stagger_type == MTK_CAM_STAGGER_NONE) {
-			s_data->flags |= MTK_CAM_REQ_SEAMLESS_IN_SEN_ZOOM;
-		}
-
-		if (mtk_cam_hw_mode_is_dc(raw_pipe->hw_mode))
-			s_data->flags |= MTK_CAM_REQ_SEAMLESS_BOOST_DVFS;
-	}
 
 	if (raw_pipe->req_res_calc)
 		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_RES_CALC;
-
-	if (raw_pipe->sensor_mode_update)
-		dev_info(raw_pipe->subdev.v4l2_dev->dev,
-			"%s: sensor mode update: switch_feature_type(0x%x), s_data->flags(0x%x)\n",
-			__func__, s_data->feature.switch_feature_type, s_data->flags);
-	else
-		dev_dbg(raw_pipe->subdev.v4l2_dev->dev,
-			"%s: sensor mode update: switch_feature_type(0x%x), s_data->flags(0x%x)\n",
-			__func__, s_data->feature.switch_feature_type, s_data->flags);
 
 	mtk_cam_tg_flash_req_update(raw_pipe, s_data);
 
@@ -6145,9 +6099,13 @@ static void isp_composer_uninit(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_ccd *ccd = cam->rproc_handle->priv;
+	int ipi_id = ctx->rpmsg_channel.src;
 
 	mtk_destroy_client_msgdevice(ccd->rpmsg_subdev, &ctx->rpmsg_channel);
 	ctx->rpmsg_dev = NULL;
+
+	if (ipi_id == CCD_IPI_MRAW_CMD)
+		atomic_set(&cam->sv_only_ctx_existed, 0);
 }
 
 static void isp_tx_frame_worker(struct work_struct *work);
@@ -8365,7 +8323,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			cfg_in_param->in_crop.s.w, cfg_in_param->in_crop.s.h);
 	}
 
-	mf_code = mf->code & SENSOR_FMT_MASK; /* todo: sensor mode issue, need patch */
+	mf_code = mf->code & 0xffff; /* todo: sensor mode issue, need patch */
 	cfg_in_param->raw_pixel_id = mtk_cam_get_sensor_pixel_id(mf_code);
 	cfg_in_param->fmt = mtk_cam_get_sensor_fmt(mf_code);
 	if (cfg_in_param->fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN ||
@@ -8761,6 +8719,12 @@ static int isp_composer_init(struct mtk_cam_ctx *ctx, unsigned int pipe_id)
 	ipi_id = mtk_cam_ctx_get_ipi_id(ctx, pipe_id);
 	if (ipi_id < 0)
 		return -EINVAL;
+
+	if (ipi_id == CCD_IPI_MRAW_CMD) {
+		// only 1 cmasv ctx is allowed
+		if (atomic_cmpxchg(&cam->sv_only_ctx_existed, 0, 1))
+			return -EINVAL;
+	}
 
 	snprintf_safe(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", ipi_id - 1);
 	msg->src = ipi_id;
@@ -9711,6 +9675,9 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		ctx->synced = 0;
 	}
 
+    // If stagger, need to turn off cam sv in advanced
+	mtk_cam_sv_dev_stream_on(ctx, 0);
+
 	if (ctx->used_raw_num) {
 		dev = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 		if (!dev) {
@@ -9772,9 +9739,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 			return -EPERM;
 		}
 	}
-
-    // If stagger, need to turn off cam sv in advanced
-	mtk_cam_sv_dev_stream_on(ctx, 0);
 
 	/* stream off seninf in non-m2m scenario including camsv/mraw only case */
 	if (!scen_active || !mtk_cam_scen_is_m2m(scen_active)) {
@@ -11285,6 +11249,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	cam_dev->streaming_ctx = 0;
 	for (i = 0; i < cam_dev->max_stream_num; i++)
 		mtk_cam_ctx_init(cam_dev->ctxs + i, cam_dev, i);
+	atomic_set(&cam_dev->sv_only_ctx_existed, 0);
 
 	cam_dev->running_job_count = 0;
 	spin_lock_init(&cam_dev->pending_job_lock);

@@ -11,11 +11,11 @@
 
 #include "imgsensor_sensor.h"
 #include "imgsensor_hw.h"
-
+int curr_sensor_id;// prize add by zhuzhengjiang for camera 20220110 start
 /*the index is consistent with enum IMGSENSOR_HW_PIN*/
 char * const imgsensor_hw_pin_names[] = {
 	"none",
-	"pdn",
+	"pnd",//prize modify by linchong for camera power down pin 20231017
 	"rst",
 	"vcama",
 	"vcama1",
@@ -115,7 +115,7 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 					i,
 					imgsensor_hw_pin_names[ppwr_info->pin]);
 			if (ret_snprintf < 0)
-				PK_DBG("NOTICE: %s, snprintf err, %d\n",
+				printk("NOTICE: %s, snprintf err, %d\n",
 					__func__, ret_snprintf);
 			if (of_property_read_string(
 				of_node, str_prop_name,
@@ -124,7 +124,7 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 					len = strlen(imgsensor_hw_id_names[j]);
 					if (strncmp(pin_hw_id_name, imgsensor_hw_id_names[j], len)
 						== 0) {
-						PK_DBG("imgsensor_hw_cfg hw_pin:%s,name:%s,id:%d\n",
+						printk("imgsensor_hw_cfg hw_pin:%s,name:%s,id:%d\n",
 							str_prop_name, pin_hw_id_name, j);
 						ppwr_info->id = j;
 						break;
@@ -227,7 +227,7 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 		return IMGSENSOR_RETURN_SUCCESS;
 	}
 #endif
-
+    curr_sensor_id = sensor_idx; // prize add by zhuzhengjiang for camera 20220110 start
 	while (ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
 		ppwr_seq->name != NULL) {
 		if (!strcmp(ppwr_seq->name, PLATFORM_POWER_SEQ_NAME)) {

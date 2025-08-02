@@ -24,7 +24,7 @@ struct charger_cooler_info {
 static struct charger_cooler_info charger_cl_data;
 /* < -1 is unlimit, unit is uA. */
 static const int master_charger_state_to_current_limit[CHARGER_STATE_NUM] = {
-	-1, 2600000, 2200000, 1800000, 1400000, 1000000, 700000, 500000, 0
+	-1, 2600000, 2200000, 1800000, 1600000, 1200000, 800000, 500000, 0
 };
 static const int slave_charger_state_to_current_limit[CHARGER_STATE_NUM] = {
 	-1, 1800000, 1600000, 1400000, 1200000, 1000000, 700000, 500000, 0

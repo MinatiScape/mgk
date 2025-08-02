@@ -1,0 +1,14 @@
+# Copyright (C) MicroArray  
+# MicroArray Fprint Driver Code
+# Kconfig
+# Date: 2017-3-15
+# Version: v4.0.06
+# Author: guq
+# Contact: guq@microarray.com.cn
+
+config MICROARRAY_FP_V4_0_0_1
+    tristate "FocalTech Fingerprint"
+    default n
+    help
+      If you say Y to this option, support will be included for 
+      the MICROARRAY_FP_V4_0_0_1's capacitive 

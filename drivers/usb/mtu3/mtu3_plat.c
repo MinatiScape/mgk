@@ -657,6 +657,14 @@ get_phy:
 	ssusb->gen1_txdeemph =
 		of_property_read_bool(node, "mediatek,gen1-txdeemph");
 	ssusb->u2_ip = of_property_read_bool(node, "mediatek,u2-ip");
+	if (ssusb->u2_ip) {
+		u32 prop_value;
+		if (!of_property_read_u32(node, "mediatek,u2-ip", &prop_value) && !prop_value) {
+			ssusb->u2_ip = false;
+			dev_info(dev, "mediatek,u2-ip is false explicitly\n");
+		}
+	}
+
 	if (of_property_read_u32(node, "mediatek,hwrscs-vers",
 			     &ssusb->hwrscs_vers)) {
 		/* compatible to devie tree setting */
@@ -764,6 +772,8 @@ static int mtu3_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(dev, 4000);
 	pm_runtime_enable(dev);
 	pm_runtime_get_sync(dev);
+
+	device_init_wakeup(dev, true);
 
 	ret = ssusb_rscs_init(ssusb);
 	if (ret)

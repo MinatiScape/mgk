@@ -3277,6 +3277,17 @@ static void mdp_lock_wake_lock(bool lock)
 	CMDQ_SYSTRACE_END();
 }
 
+void cmdq_check_wake_lock(void)
+{
+	s32 clock_count;
+
+	clock_count = atomic_read(&cmdq_thread_usage);
+
+	if (clock_count == 0) {
+		CMDQ_ERR("wake_lock is disable!!!\n");
+	}
+}
+
 static void cmdq_core_clk_enable(struct cmdqRecStruct *handle)
 {
 	s32 clock_count;
@@ -4405,7 +4416,8 @@ static void cmdq_pkt_auto_release_destroy_work(struct work_struct *work)
 
 	cmdq_pkt_auto_release_work(work);
 	CMDQ_LOG("in auto release destroy task:%p\n", handle);
-	cmdq_task_destroy(handle);
+	if (READ_ONCE(handle->pkt->cmplt.done) == 0)
+		cmdq_task_destroy(handle);
 }
 
 

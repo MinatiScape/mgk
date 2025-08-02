@@ -565,7 +565,7 @@ static const struct mtk_iommu_iova_region mt6983_multi_dom_apu[] = {
 };
 
 /*
- * 0.NORMAL: total: 14.04GB
+ * 0.NORMAL: total: 13.2GB + 96M
  *	-NORMAL: 0x1000~0x1FFF_FFFF(512MB)
  *	-VDEC
  *	-NORMAL: 0x32C0_0000~0xFFFF_FFFF(3.2GB)
@@ -576,7 +576,8 @@ static const struct mtk_iommu_iova_region mt6983_multi_dom_apu[] = {
  * 2.LK_RESV:        0x1_0600_0000~0x1_07FF_FFFF(32MB)
  * 3.CCU0:           0x1_0800_0000~0x1_0BFF_FFFF(64MB)
  * 4.CCU1:           0x1_0C00_0000~0x1_0FFF_FFFF(64MB)
- * 5.VDO_UP:         0x1_1000_0000~0x1_6FFF_FFFF(1.5G)
+ * 5.VDO_UP_768MB:         0x1_1000_0000~0x1_3FFF_FFFF(768M)
+ * 6.VDO_UP_1.5G:         0x1_4000_0000~0x1_9FFF_FFFF(1.5G)
  */
 static const struct mtk_iommu_iova_region mt6985_multi_dom_mm[] = {
 	{ .iova_base = SZ_4K, .size = (SZ_4G * 4 - SZ_4K), .type = NORMAL}, /*0. NORMAL */
@@ -584,7 +585,8 @@ static const struct mtk_iommu_iova_region mt6985_multi_dom_mm[] = {
 	{ .iova_base = 0x106000000ULL, .size = SZ_32M, .type = NORMAL}, /* 2,LK_RESV:32MB */
 	{ .iova_base = 0x108000000ULL, .size = SZ_64M, .type = PROTECTED}, /* 3,CCU0:64MB */
 	{ .iova_base = 0x10C000000ULL, .size = SZ_64M, .type = PROTECTED}, /* 4,CCU1:64MB */
-	{ .iova_base = 0x110000000ULL, .size = 0x60000000, .type = PROTECTED}, /* 5,VDO_UP:1.5G */
+	{ .iova_base = 0x110000000ULL, .size = SZ_128M * 6, .type = PROTECTED}, /* 4,VDO_UP_768MB */
+	{ .iova_base = 0x140000000ULL, .size = 0x60000000, .type = NORMAL}, /* 5,VDO_UP_1.5G */
 };
 
 /*
@@ -2645,6 +2647,8 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -EINVAL;
 	data->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(data->base))
 		return PTR_ERR(data->base);
@@ -2718,6 +2722,14 @@ out:
 		if (IS_ERR(data->bclk)) {
 			dev_err(dev, "%s,get clk failed\n", __func__);
 			return PTR_ERR(data->bclk);
+		}
+	}
+
+	if (MTK_IOMMU_HAS_FLAG(data->plat_data, PGTABLE_PA_35_EN)) {
+		ret = dma_set_mask(dev, DMA_BIT_MASK(35));
+		if (ret) {
+			dev_err(dev, "Failed to set dma_mask 35.\n");
+			return ret;
 		}
 	}
 
@@ -3621,7 +3633,7 @@ static const struct mtk_iommu_plat_data mt6985_data_disp = {
 	.flags          = OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_EN |
 			  SKIP_CFG_PORT | IOVA_34_EN | PGTABLE_PA_35_EN |
-			  HAS_BCLK | HAS_SMI_SUB_COMM | SAME_SUBSYS | IOMMU_MAU_EN,
+			  HAS_BCLK | HAS_SMI_SUB_COMM | SAME_SUBSYS,
 	.hw_list        = &mm_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
@@ -3638,7 +3650,7 @@ static const struct mtk_iommu_plat_data mt6985_data_mdp = {
 	.flags          = OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_EN |
 			  SKIP_CFG_PORT | IOVA_34_EN | PGTABLE_PA_35_EN |
-			  HAS_BCLK | HAS_SMI_SUB_COMM | SAME_SUBSYS | IOMMU_MAU_EN,
+			  HAS_BCLK | HAS_SMI_SUB_COMM | SAME_SUBSYS,
 	.hw_list        = &mm_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= MDP_IOMMU,
@@ -3653,7 +3665,7 @@ static const struct mtk_iommu_plat_data mt6985_data_mdp = {
 static const struct mtk_iommu_plat_data mt6985_data_apu0 = {
 	.m4u_plat	= M4U_MT6985,
 	.flags          = TLB_SYNC_EN | IOMMU_SEC_EN | PGTABLE_PA_35_EN |
-			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
+			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU |
 			  PM_OPS_SKIP,
 	.hw_list        = &apu_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
@@ -3669,7 +3681,7 @@ static const struct mtk_iommu_plat_data mt6985_data_apu0 = {
 static const struct mtk_iommu_plat_data mt6985_data_apu1 = {
 	.m4u_plat	= M4U_MT6985,
 	.flags          = TLB_SYNC_EN | IOMMU_SEC_EN | PGTABLE_PA_35_EN |
-			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU | IOMMU_MAU_EN |
+			  GET_DOM_ID_LEGACY | IOVA_34_EN | LINK_WITH_APU |
 			  PM_OPS_SKIP,
 	.hw_list        = &apu_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,

@@ -610,9 +610,14 @@ int session_mc_open_session(struct tee_session *session,
 		/* Tell SWd to load TA from SFS as not in registry */
 		if (IS_ERR(obj)) {
 			int ret = PTR_ERR(obj);
-
-			if ((ret == -ENOENT) || (ret == -ENOPROTOOPT))
+            //Mediatek RPMB kernel driver tries to load this RPMB TA before SFS ready
+            //It's not embedded TA; not allowed to find the RPMB TA from SFS
+            #define RPMB_GP_UUID { { 7, 0x15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } }
+            struct mc_uuid_t rpmb_gp_uuid = RPMB_GP_UUID;
+		//	if ((ret == -ENOENT) || (ret == -ENOPROTOOPT))
+            if (((ret == -ENOENT) || (ret == -ENOPROTOOPT)) && (memcmp(info->uuid, &rpmb_gp_uuid, sizeof(struct mc_uuid_t)) != 0)) {
 				obj = tee_object_select(info->uuid);
+            }
 		}
 	} else if (info->type == TEE_MC_DRIVER_UUID) {
 		/* Load driver using only uuid */

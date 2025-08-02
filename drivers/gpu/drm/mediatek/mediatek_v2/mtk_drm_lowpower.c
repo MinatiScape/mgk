@@ -475,7 +475,9 @@ int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 	idlemgr_ctx->enterulps = 0;
 	idlemgr_ctx->idlemgr_last_kick_time = ~(0ULL);
 	idlemgr_ctx->cur_lp_cust_mode = 0;
-	idlemgr_ctx->idle_check_interval = 50;
+	/* Modify by zhanghuimin for bug #SN339D-1134 20240102-begin */
+	idlemgr_ctx->idle_check_interval = 1000;
+	/* Modify by zhanghuimin for bug #SN339D-1134 20240102-end */
 
 	snprintf(name, LEN, "mtk_drm_disp_idlemgr-%d", index);
 	idlemgr->idlemgr_task =
@@ -575,22 +577,26 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	CRTC_MMP_MARK((int)crtc_id, enter_idle, 1, 0);
 
 	/* 3. disconnect addon module and recover config */
+	mutex_lock(&priv->path_ctrl_lock);
+
 	mtk_crtc_disconnect_addon_module(crtc);
 	CRTC_MMP_MARK((int)crtc_id, enter_idle, 2, 0);
 
-	/* 4. set HRT BW to 0 */
+	/* 4. disconnect path */
+	mtk_crtc_disconnect_default_path(mtk_crtc);
+
+	mutex_unlock(&priv->path_ctrl_lock);
+
+	/* 5. set HRT BW to 0 */
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMQOS_SUPPORT))
 		mtk_disp_set_hrt_bw(mtk_crtc, 0);
 
-	/* 5. Release MMCLOCK request */
+	/* 6. Release MMCLOCK request */
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
-
-	/* 6. disconnect path */
-	mtk_crtc_disconnect_default_path(mtk_crtc);
 
 	/* 7. power off all modules in this CRTC */
 	mtk_crtc_ddp_unprepare(mtk_crtc);
@@ -672,6 +678,8 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 		mtk_crtc_hw_block_ready(crtc);
 	}
 
+	mutex_lock(&priv->path_ctrl_lock);
+
 	/* 6. connect path */
 	mtk_crtc_connect_default_path(mtk_crtc);
 
@@ -683,6 +691,8 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 		mtk_crtc_addon_connector_connect(crtc, NULL); /* config dsc only */
 	else
 		mtk_crtc_connect_addon_module(crtc);
+
+	mutex_unlock(&priv->path_ctrl_lock);
 
 	if (mtk_crtc->mml_ir_sram.bk_hrt_idx)
 		mtk_crtc_alloc_sram(mtk_crtc, mtk_crtc->mml_ir_sram.bk_hrt_idx);
