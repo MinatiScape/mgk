@@ -108,7 +108,6 @@ struct aa_data {
  * @policy: general match rules governing policy
  * @file: The set of rules governing basic file access and domain transitions
  * @caps: capabilities for the profile
- * @net_compat: v2 compat network controls for the profile
  * @rlimits: rlimits for the profile
  *
  * @dents: dentries for the profiles file entries in apparmorfs
@@ -146,7 +145,6 @@ struct aa_profile {
 	struct aa_policydb policy;
 	struct aa_file_rules file;
 	struct aa_caps caps;
-	struct aa_net_compat *net_compat;
 
 	int xattr_count;
 	char **xattrs;
@@ -225,28 +223,14 @@ static inline unsigned int PROFILE_MEDIATES(struct aa_profile *profile,
 					profile->policy.start[0], &class, 1);
 }
 
-/* safe version of POLICY_MEDIATES for full range input */
-static inline unsigned int PROFILE_MEDIATES_SAFE(struct aa_profile *profile,
-                                                unsigned char class)
-{
-       if (profile->policy.dfa)
-               return aa_dfa_match_len(profile->policy.dfa,
-                                       profile->policy.start[0], &class, 1);
-       return 0;
-}
-
 static inline unsigned int PROFILE_MEDIATES_AF(struct aa_profile *profile,
 					       u16 AF) {
 	unsigned int state = PROFILE_MEDIATES(profile, AA_CLASS_NET);
 	__be16 be_af = cpu_to_be16(AF);
 
-	if (!state) {
-		state = PROFILE_MEDIATES(profile, AA_CLASS_NET_COMPAT);
-		if (!state)
-			return 0;
-	}
-	state = aa_dfa_match_len(profile->policy.dfa, state, (char *) &be_af, 2);
-	return state;
+	if (!state)
+		return 0;
+	return aa_dfa_match_len(profile->policy.dfa, state, (char *) &be_af, 2);
 }
 
 /**
